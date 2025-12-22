@@ -602,20 +602,8 @@ def update_feishu_document(
         date_str = datetime.datetime.now().strftime('%Y年%m月%d日')
 
         # 1. 不再维护本地 Markdown 文件，直接构造 Docx Block 结构
-        # 2. 使用 Docx SDK 追加更新飞书 Docx 文档内容（docx/v1），使用应用级别的 tenant_access_token
+        # 2. 使用 HTTP 请求直接更新飞书 Docx 文档，使用应用级别的 tenant_access_token
         try:
-            import lark_oapi as lark
-            from lark_oapi.api.docx.v1 import (
-                CreateDocumentBlockChildrenRequest,
-                CreateDocumentBlockChildrenRequestBody,
-                Block,
-                Text,
-                TextElement,
-                TextRun,
-                TextStyle,
-                TextElementStyle,
-            )
-
             # 检查 app_id 和 app_secret 是否提供
             if not app_id or not app_secret:
                 logger.warning("⚠️  未提供 FEISHU_APP_ID 或 FEISHU_APP_SECRET，无法更新飞书文档")
@@ -624,33 +612,38 @@ def update_feishu_document(
             # 使用应用的 tenant_access_token（与发送消息的方式一致）
             tenant_token = get_tenant_access_token(app_id, app_secret)
 
-            # 使用 SDK client
-            client = lark.Client.builder() \
-                .log_level(lark.LogLevel.INFO) \
-                .build()
-
             # 构造块列表：参考邮件样式，但以 Docx 文本块的形式表达
             blocks: List[Block] = build_docx_blocks_for_papers(papers, date_str)
 
-            # 检查 blocks 是否为空，API 要求 children 数组至少有一个元素
+            # 检查 blocks 是否为空
             if not blocks or len(blocks) == 0:
                 logger.warning(f"⚠️  构造的 Docx 块列表为空（papers数量: {len(papers)}），跳过文档更新")
                 return True
             
             logger.info(f"📝 准备插入 {len(blocks)} 个块到飞书文档")
             
-            # 飞书 API 限制：children 数组最多 50 个元素，需要分批插入
+            # 飞书 API 限制：blocks 数组最多 50 个元素，需要分批插入
             MAX_BLOCKS_PER_BATCH = 50
             total_batches = (len(blocks) + MAX_BLOCKS_PER_BATCH - 1) // MAX_BLOCKS_PER_BATCH
             logger.info(f"📦 将分 {total_batches} 批插入（每批最多 {MAX_BLOCKS_PER_BATCH} 个块）")
             
-            # 使用 tenant_access_token（应用级别 token）
-            option = lark.RequestOption.builder() \
-                .tenant_access_token(tenant_token) \
-                .build()
+            # 将 Block 对象转换为字典格式
+            def block_to_dict(block) -> dict:
+                """将 SDK Block 对象转换为字典格式"""
+                import json
+                import lark_oapi as lark
+                # 使用 SDK 的序列化方法
+                block_json = json.loads(lark.JSON.marshal(block))
+                return block_json
             
             # 分批插入，倒序插入以确保顺序正确（最后一批先插入，第1批最后插入）
             # 这样第1批会在最前面，保持正确的顺序
+            url = f"https://open.feishu.cn/open-apis/docx/v1/documents/{doc_token}/blocks"
+            headers = {
+                "Authorization": f"Bearer {tenant_token}",
+                "Content-Type": "application/json"
+            }
+            
             for batch_idx in range(total_batches - 1, -1, -1):  # 从最后一批开始倒序
                 start_idx = batch_idx * MAX_BLOCKS_PER_BATCH
                 end_idx = min(start_idx + MAX_BLOCKS_PER_BATCH, len(blocks))
@@ -658,30 +651,26 @@ def update_feishu_document(
                 
                 logger.debug(f"📤 插入第 {batch_idx + 1}/{total_batches} 批（块 {start_idx + 1}-{end_idx}，共 {len(batch_blocks)} 个）")
                 
-                request = CreateDocumentBlockChildrenRequest.builder() \
-                    .document_id(doc_token) \
-                    .block_id(doc_token) \
-                    .document_revision_id(-1) \
-                    .request_body(
-                        CreateDocumentBlockChildrenRequestBody.builder()
-                        .children(batch_blocks)
-                        .index(0)  # 每次都插入到文档最前面
-                        .build()
-                    ) \
-                    .build()
+                # 将 Block 对象转换为字典
+                blocks_dict = [block_to_dict(block) for block in batch_blocks]
                 
-                response = client.docx.v1.document_block_children.create(request, option)
+                payload = {
+                    "index": 0,  # 插入到文档最前面
+                    "blocks": blocks_dict
+                }
                 
-                if not response.success():
-                    error_detail = ""
-                    try:
-                        if hasattr(response, 'raw') and response.raw:
-                            import json
-                            error_detail = f" | 响应详情: {json.dumps(json.loads(response.raw.content), indent=2, ensure_ascii=False)}"
-                    except Exception:
-                        pass
+                resp = requests.post(url, json=payload, headers=headers, timeout=30)
+                
+                try:
+                    resp.raise_for_status()
+                except Exception as http_e:
+                    logger.warning(f"⚠️  飞书 Docx 文档 HTTP 错误（第 {batch_idx + 1} 批）: {http_e}, 响应: {resp.text}")
+                    return True
+                
+                data = resp.json()
+                if data.get("code") != 0:
                     logger.warning(
-                        f"⚠️  飞书 Docx 文档 API 返回错误（第 {batch_idx + 1} 批）: {response.code} {response.msg} | log_id: {response.get_log_id()}{error_detail}"
+                        f"⚠️  飞书 Docx 文档 API 返回错误（第 {batch_idx + 1} 批）: {data.get('code')} {data.get('msg')} | 响应: {data}"
                     )
                     return True
                 
