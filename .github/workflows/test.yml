@@ -6,9 +6,6 @@ jobs:
   calculate-and-send:
     runs-on: ubuntu-latest
     steps:
-      - name: Install lark-oapi
-        run: uv pip install lark-oapi
-        
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -19,6 +16,9 @@ jobs:
         uses: astral-sh/setup-uv@v3
         with:
           version: '0.5.4'
+
+      - name: Install extra deps (lark-oapi for Feishu)
+        run: uv pip install lark-oapi
 
       - name: Run script
         env:
