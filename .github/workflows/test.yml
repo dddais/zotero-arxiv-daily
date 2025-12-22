@@ -53,5 +53,6 @@ jobs:
           FEISHU_CHAT_ID: ${{ secrets.FEISHU_CHAT_ID }}
           # FEISHU_DOC_TOKEN: ${{ secrets.FEISHU_DOC_TOKEN }}
           FEISHU_HISTORY_FILE: history.md 
+         
         run: |
           uv run main.py --debug

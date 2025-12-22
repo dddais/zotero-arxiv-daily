@@ -407,18 +407,15 @@ def update_feishu_document(
             except Exception as e:
                 logger.warning(f"更新本地历史文件失败: {e}")
         
-        # 2. 使用 Docx API 追加更新飞书文档内容（docx/v1）
+        # 2. 使用 Docx API 追加更新飞书文档内容（docx/v1），使用应用租户 token（与发消息方式相同）
         try:
-            # Docx 文档通常需要以“用户身份”操作，这里从环境变量读取用户 access token
-            user_token = os.getenv("FEISHU_USER_ACCESS_TOKEN")
-            if not user_token:
-                logger.warning("⚠️  未配置 FEISHU_USER_ACCESS_TOKEN，无法自动更新 Docx 文档，只更新本地 Markdown。")
-                return True
+            # 使用应用的 tenant_access_token（无需单独的用户 access token）
+            tenant_token = get_tenant_access_token(app_id, app_secret)
 
             # 将本次 new_content 作为一个段落块追加到文档末尾
             url = f"https://open.feishu.cn/open-apis/docx/v1/documents/{doc_token}/blocks"
             headers = {
-                "Authorization": f"Bearer {user_token}",
+                "Authorization": f"Bearer {tenant_token}",
                 "Content-Type": "application/json",
             }
             payload = {
@@ -457,7 +454,7 @@ def update_feishu_document(
             logger.warning(f"⚠️  飞书 Docx 文档自动更新失败: {e}")
             if history_file:
                 logger.info(f"   内容已保存到本地文件: {history_file}")
-                logger.info("   建议：手动将 Markdown 内容导入到飞书文档（飞书支持 Markdown 导入）或检查 FEISHU_USER_ACCESS_TOKEN 是否有效")
+                logger.info("   建议：手动将 Markdown 内容导入到飞书文档（飞书支持 Markdown 导入）")
             return True
         
     except Exception as e:
