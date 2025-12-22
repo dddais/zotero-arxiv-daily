@@ -66,68 +66,62 @@ def build_paper_summary(p: ArxivPaper) -> dict:
     }
 
 
-def build_feishu_interactive_message(papers: List[ArxivPaper], date_str: Optional[str] = None, doc_url: Optional[str] = None) -> dict:
+def build_feishu_interactive_message(
+    papers: List[ArxivPaper],
+    date_str: Optional[str] = None,
+    doc_url: Optional[str] = None,
+) -> dict:
     """
-    构建飞书 post 富文本消息：精简摘要（Top 3）+ 文档链接
+    构建飞书 interactive 卡片：精简摘要（Top 3）+ 查看详情按钮
+    采用官方推荐的简单 card 结构：若仍有问题，可从 API Explorer 进一步微调。
     """
     if date_str is None:
-        date_str = datetime.datetime.now().strftime('%Y年%m月%d日')
+        date_str = datetime.datetime.now().strftime("%Y年%m月%d日")
 
-    blocks: list[list[dict]] = []
-
-    # 标题行
-    blocks.append([{
-        "tag": "text",
-        "text": f"📚 Daily arXiv - {date_str}",
-    }])
+    title = f"Daily arXiv - {date_str}"
 
     if len(papers) == 0:
-        blocks.append([{
-            "tag": "text",
-            "text": "今天没有新论文，好好休息吧！😊",
-        }])
+        summary_md = "今天没有新论文，好好休息吧！😊"
     else:
-        blocks.append([{
-            "tag": "text",
-            "text": f"今日推荐 {len(papers)} 篇论文，下面是前 3 篇简要信息：",
-        }])
-        # 每篇论文一个小块
+        lines = [
+            f"📚 **{title}**",
+            "",
+            f"今日推荐 {len(papers)} 篇论文，下面是前 3 篇简要信息：",
+            "",
+        ]
         for idx, p in enumerate(papers[:3], 1):
             info = build_paper_summary(p)
-            # 标题 + 星级
-            blocks.append([{
-                "tag": "text",
-                "text": f"{idx}. {info['title']} {info['stars']}",
-            }])
-            # 关键词
-            blocks.append([{
-                "tag": "text",
-                "text": f"关键词: {info['keywords']}",
-            }])
-            # 链接
-            blocks.append([{
-                "tag": "a",
-                "text": "arXiv 链接",
-                "href": f"https://arxiv.org/abs/{info['arxiv_id']}",
-            }])
-
+            one = [
+                f"{idx}. **{info['title']}** {info['stars']}",
+                f"   关键词: {info['keywords']}",
+                f"   [arXiv 链接](https://arxiv.org/abs/{info['arxiv_id']})",
+                "",
+            ]
+            lines.extend(one)
         if doc_url:
-            blocks.append([{
-                "tag": "a",
-                "text": "👉 查看全部详情（飞书文档）",
-                "href": doc_url,
-            }])
+            lines.append(f"[👉 查看全部详情（飞书文档）]({doc_url})")
+        summary_md = "\n".join(lines).strip()
+
+    elements: list[dict] = [
+        {
+            "tag": "div",
+            "text": {
+                "tag": "lark_md",
+                "content": summary_md,
+            },
+        }
+    ]
 
     return {
-        "msg_type": "post",
-        "content": {
-            "post": {
-                "zh_cn": {
-                    "title": f"Daily arXiv - {date_str}",
-                    "content": blocks,
-                }
-            }
-        }
+        "msg_type": "interactive",
+        "card": {
+            "config": {"wide_screen_mode": True},
+            "header": {
+                "title": {"tag": "plain_text", "content": title},
+                "template": "blue",
+            },
+            "elements": elements,
+        },
     }
 
 
@@ -309,11 +303,6 @@ def send_feishu_group_message(
             **message
         }
 
-        # Feishu 要求 content 为 JSON 字符串；这里做一次兜底转换
-        import json
-        if isinstance(payload.get("content"), dict):
-            payload["content"] = json.dumps(payload["content"], ensure_ascii=False)
-        
         resp = requests.post(url, headers=headers, params=params, json=payload, timeout=30)
         try:
             resp.raise_for_status()
