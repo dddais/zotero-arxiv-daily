@@ -407,47 +407,57 @@ def update_feishu_document(
             except Exception as e:
                 logger.warning(f"更新本地历史文件失败: {e}")
         
-        # 2. 使用 doc/v2 覆盖更新飞书文档内容（wiki 链接对应的底层文档）
+        # 2. 使用 Docx API 追加更新飞书文档内容（docx/v1）
         try:
-            # 准备完整内容：优先使用本地 history 文件，若不存在则用当前 new_content
-            if history_file and os.path.exists(history_file):
-                with open(history_file, "r", encoding="utf-8") as f:
-                    full_content = f.read()
-            else:
-                full_content = f"# Daily arXiv 推荐历史\n\n{new_content}"
+            # Docx 文档通常需要以“用户身份”操作，这里从环境变量读取用户 access token
+            user_token = os.getenv("FEISHU_USER_ACCESS_TOKEN")
+            if not user_token:
+                logger.warning("⚠️  未配置 FEISHU_USER_ACCESS_TOKEN，无法自动更新 Docx 文档，只更新本地 Markdown。")
+                return True
 
-            # 获取 tenant_access_token
-            token = get_tenant_access_token(app_id, app_secret)
-
-            # doc_token 来自你的 wiki URL: https://x2-robot.feishu.cn/wiki/{doc_token}
-            url = f"https://open.feishu.cn/open-apis/doc/v2/{doc_token}/content"
-            # url = f"https://x2-robot.feishu.cn/wiki/{doc_token}"
+            # 将本次 new_content 作为一个段落块追加到文档末尾
+            url = f"https://open.feishu.cn/open-apis/docx/v1/documents/{doc_token}/blocks"
             headers = {
-                "Authorization": f"Bearer {token}",
+                "Authorization": f"Bearer {user_token}",
                 "Content-Type": "application/json",
             }
-            payload = {"content": full_content}
+            payload = {
+                "children": [
+                    {
+                        "block_type": "paragraph",
+                        "paragraph": {
+                            "elements": [
+                                {
+                                    "text_run": {
+                                        "content": new_content
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
 
-            resp = requests.put(url, headers=headers, json=payload, timeout=30)
+            resp = requests.post(url, headers=headers, json=payload, timeout=30)
             try:
                 resp.raise_for_status()
             except Exception as http_e:
-                logger.warning(f"⚠️  飞书文档 HTTP 更新失败: {http_e}, 响应: {resp.text}")
+                logger.warning(f"⚠️  飞书 Docx 文档 HTTP 更新失败: {http_e}, 响应: {resp.text}")
                 return True  # 本地文件已更新，视为部分成功
 
             data = resp.json()
             if data.get("code") != 0:
-                logger.warning(f"⚠️  飞书文档 API 返回错误: {data.get('code')} {data.get('msg')} | 响应: {data}")
+                logger.warning(f"⚠️  飞书 Docx 文档 API 返回错误: {data.get('code')} {data.get('msg')} | 响应: {data}")
                 return True  # 本地文件已更新，视为部分成功
 
-            logger.success("✅ 飞书文档更新成功（doc/v2 覆盖模式）")
+            logger.success("✅ 飞书 Docx 文档更新成功（追加模式）")
             return True
 
         except Exception as e:
-            logger.warning(f"⚠️  飞书文档自动更新失败: {e}")
+            logger.warning(f"⚠️  飞书 Docx 文档自动更新失败: {e}")
             if history_file:
                 logger.info(f"   内容已保存到本地文件: {history_file}")
-                logger.info("   建议：手动将 Markdown 内容导入到飞书文档（飞书支持 Markdown 导入）")
+                logger.info("   建议：手动将 Markdown 内容导入到飞书文档（飞书支持 Markdown 导入）或检查 FEISHU_USER_ACCESS_TOKEN 是否有效")
             return True
         
     except Exception as e:
