@@ -6,6 +6,9 @@ jobs:
   calculate-and-send:
     runs-on: ubuntu-latest
     steps:
+      - name: Install lark-oapi
+        run: uv pip install lark-oapi
+        
       - name: Checkout
         uses: actions/checkout@v4
         with:

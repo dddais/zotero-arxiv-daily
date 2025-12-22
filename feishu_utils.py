@@ -68,43 +68,32 @@ def build_paper_summary(p: ArxivPaper) -> dict:
 
 def build_feishu_interactive_message(papers: List[ArxivPaper], date_str: Optional[str] = None) -> dict:
     """
-    构建飞书消息（简化为 post 类型，避免卡片 schema 报 400）
+    构建飞书消息（简化为纯 text，最大兼容）
     """
     if date_str is None:
         date_str = datetime.datetime.now().strftime('%Y年%m月%d日')
 
-    def build_blocks():
-        blocks = []
-        if len(papers) == 0:
-            blocks.append([{"tag": "text", "text": "今天没有新论文，好好休息吧！😊"}])
-            return blocks
-
-        blocks.append([{"tag": "text", "text": f"📚 Daily arXiv - {date_str}\n", "style": {"bold": True}}])
-        blocks.append([{"tag": "text", "text": f"共推荐 {len(papers)} 篇论文\n\n"}])
-
+    if len(papers) == 0:
+        text = f"📚 Daily arXiv - {date_str}\n今天没有新论文，好好休息吧！😊"
+    else:
+        lines = [f"📚 Daily arXiv - {date_str}", f"共推荐 {len(papers)} 篇论文", ""]
         for idx, p in enumerate(papers, 1):
             info = build_paper_summary(p)
-            blocks.append([{"tag": "text", "text": f"{idx}. {info['title']} {info['stars']}\n", "style": {"bold": True}}])
-            blocks.append([{"tag": "text", "text": f"作者: {info['authors']}\n"}])
-            blocks.append([{"tag": "text", "text": f"关键词: {info['keywords']}\n"}])
-            blocks.append([{"tag": "text", "text": f"TLDR: {info['tldr']}\n"}])
-
-            links = f"arXiv: https://arxiv.org/abs/{info['arxiv_id']}  |  PDF: {info['pdf_url']}"
+            lines.append(f"{idx}. {info['title']} {info['stars']}")
+            lines.append(f"作者: {info['authors']}")
+            lines.append(f"关键词: {info['keywords']}")
+            lines.append(f"TLDR: {info['tldr']}")
+            links = f"arXiv: https://arxiv.org/abs/{info['arxiv_id']} | PDF: {info['pdf_url']}"
             if info["code_url"]:
-                links += f"  |  Code: {info['code_url']}"
-            blocks.append([{"tag": "text", "text": links + "\n"}])
-            blocks.append([{"tag": "text", "text": "—" * 20 + "\n"}])
-        return blocks
+                links += f" | Code: {info['code_url']}"
+            lines.append(links)
+            lines.append("-" * 24)
+        text = "\n".join(lines)
 
     return {
-        "msg_type": "post",
+        "msg_type": "text",
         "content": {
-            "post": {
-                "zh_cn": {
-                    "title": f"Daily arXiv - {date_str}",
-                    "content": build_blocks()
-                }
-            }
+            "text": text
         }
     }
 
