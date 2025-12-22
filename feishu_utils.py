@@ -68,62 +68,65 @@ def build_paper_summary(p: ArxivPaper) -> dict:
 
 def build_feishu_interactive_message(papers: List[ArxivPaper], date_str: Optional[str] = None, doc_url: Optional[str] = None) -> dict:
     """
-    构建飞书卡片：只放概要（前 3 篇）+ 查看详情按钮（跳转文档）
+    构建飞书 post 富文本消息：精简摘要（Top 3）+ 文档链接
     """
     if date_str is None:
         date_str = datetime.datetime.now().strftime('%Y年%m月%d日')
 
-    title = f"Daily arXiv - {date_str}"
+    blocks: list[list[dict]] = []
+
+    # 标题行
+    blocks.append([{
+        "tag": "text",
+        "text": f"📚 Daily arXiv - {date_str}",
+    }])
 
     if len(papers) == 0:
-        body_md = "今天没有新论文，好好休息吧！😊"
-        top_md = f"**{title}**\n\n{body_md}"
+        blocks.append([{
+            "tag": "text",
+            "text": "今天没有新论文，好好休息吧！😊",
+        }])
     else:
-        top_md = f"**{title}**\n\n今日推荐 {len(papers)} 篇论文，摘要如下（前 3 篇）：\n\n"
-        lines = []
+        blocks.append([{
+            "tag": "text",
+            "text": f"今日推荐 {len(papers)} 篇论文，下面是前 3 篇简要信息：",
+        }])
+        # 每篇论文一个小块
         for idx, p in enumerate(papers[:3], 1):
             info = build_paper_summary(p)
-            line = (
-                f"{idx}. **{info['title']}** {info['stars']}\n"
-                f"作者: {info['authors']}\n"
-                f"关键词: {info['keywords']}\n"
-            )
-            lines.append(line)
-        body_md = "\n".join(lines).strip()
-        top_md = top_md + body_md
+            # 标题 + 星级
+            blocks.append([{
+                "tag": "text",
+                "text": f"{idx}. {info['title']} {info['stars']}",
+            }])
+            # 关键词
+            blocks.append([{
+                "tag": "text",
+                "text": f"关键词: {info['keywords']}",
+            }])
+            # 链接
+            blocks.append([{
+                "tag": "a",
+                "text": "arXiv 链接",
+                "href": f"https://arxiv.org/abs/{info['arxiv_id']}",
+            }])
 
-    elements = [
-        {
-            "tag": "div",
-            "text": {
-                "tag": "lark_md",
-                "content": top_md
-            }
-        }
-    ]
-
-    if doc_url:
-        elements.append({
-            "tag": "action",
-            "actions": [
-                {
-                    "tag": "button",
-                    "text": {"tag": "plain_text", "content": "查看全部详情"},
-                    "type": "primary",
-                    "url": doc_url
-                }
-            ]
-        })
+        if doc_url:
+            blocks.append([{
+                "tag": "a",
+                "text": "👉 查看全部详情（飞书文档）",
+                "href": doc_url,
+            }])
 
     return {
-        "msg_type": "interactive",
-        "card": {
-            "config": {"wide_screen_mode": True},
-            "header": {
-                "title": {"tag": "plain_text", "content": title},
-                "template": "blue"
-            },
-            "elements": elements
+        "msg_type": "post",
+        "content": {
+            "post": {
+                "zh_cn": {
+                    "title": f"Daily arXiv - {date_str}",
+                    "content": blocks,
+                }
+            }
         }
     }
 
