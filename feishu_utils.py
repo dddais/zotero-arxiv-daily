@@ -407,59 +407,81 @@ def update_feishu_document(
             except Exception as e:
                 logger.warning(f"更新本地历史文件失败: {e}")
         
-        # 2. 使用 Docx API 追加更新飞书文档内容（docx/v1），使用应用租户 token（与发消息方式相同）
+        # 2. 使用 Docx SDK 追加更新飞书 Docx 文档内容（docx/v1），以用户身份调用
         try:
-            # 使用应用的 tenant_access_token（无需单独的用户 access token）
-            tenant_token = get_tenant_access_token(app_id, app_secret)
+            import lark_oapi as lark
+            from lark_oapi.api.docx.v1 import (
+                CreateDocumentBlockChildrenRequest,
+                CreateDocumentBlockChildrenRequestBody,
+                Block,
+                Text,
+                TextElement,
+                TextRun,
+                TextStyle,
+            )
 
-            # 根据官方 Docx API 文档：
-            # 创建子块接口为：
-            # POST /open-apis/docx/v1/documents/{document_id}/blocks/{block_id}/children
-            # 这里使用 "0" 作为根块 ID，将内容插入到文档开头（index=0）
-            url = f"https://open.feishu.cn/open-apis/docx/v1/documents/{doc_token}/blocks/0/children"
-            headers = {
-                "Authorization": f"Bearer {tenant_token}",
-                "Content-Type": "application/json",
-            }
-            # 根据官方示例，使用 block_type=2 且字段为 text 而非 paragraph
-            payload = {
-                "index": 0,
-                "children": [
-                    {
-                        "block_type": 2,
-                        "text": {
-                            "elements": [
-                                {
-                                    "text_run": {
-                                        "content": new_content
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                ]
-            }
+            user_access_token = os.getenv("FEISHU_USER_ACCESS_TOKEN")
+            if not user_access_token:
+                logger.warning("⚠️  未配置 FEISHU_USER_ACCESS_TOKEN，无法自动更新 Docx 文档，只更新本地 Markdown。")
+                return True
 
-            resp = requests.post(url, headers=headers, json=payload, timeout=30)
-            try:
-                resp.raise_for_status()
-            except Exception as http_e:
-                logger.warning(f"⚠️  飞书 Docx 文档 HTTP 更新失败: {http_e}, 响应: {resp.text}")
-                return True  # 本地文件已更新，视为部分成功
+            # 使用 SDK client，按官方示例启用 set_token
+            client = lark.Client.builder() \
+                .enable_set_token(True) \
+                .log_level(lark.LogLevel.INFO) \
+                .build()
 
-            data = resp.json()
-            if data.get("code") != 0:
-                logger.warning(f"⚠️  飞书 Docx 文档 API 返回错误: {data.get('code')} {data.get('msg')} | 响应: {data}")
-                return True  # 本地文件已更新，视为部分成功
+            # 构造块：block_type=2 表示段落块，使用 Text 结构承载文本
+            block = Block.builder() \
+                .block_type(2) \
+                .text(
+                    Text.builder()
+                    .style(TextStyle.builder().build())
+                    .elements([
+                        TextElement.builder()
+                        .text_run(
+                            TextRun.builder()
+                            .content(new_content)
+                            .build()
+                        )
+                        .build()
+                    ])
+                    .build()
+                ) \
+                .build()
 
-            logger.success("✅ 飞书 Docx 文档更新成功（追加模式）")
+            request = CreateDocumentBlockChildrenRequest.builder() \
+                .document_id(doc_token) \
+                .block_id(doc_token) \
+                .document_revision_id(-1) \
+                .request_body(
+                    CreateDocumentBlockChildrenRequestBody.builder()
+                    .children([block])
+                    .index(0)
+                    .build()
+                ) \
+                .build()
+
+            option = lark.RequestOption.builder() \
+                .user_access_token(user_access_token) \
+                .build()
+
+            response = client.docx.v1.document_block_children.create(request, option)
+
+            if not response.success():
+                logger.warning(
+                    f"⚠️  飞书 Docx 文档 API 返回错误: {response.code} {response.msg} | log_id: {response.get_log_id()}"
+                )
+                return True
+
+            logger.success("✅ 飞书 Docx 文档更新成功（追加模式，Docx SDK）")
             return True
 
         except Exception as e:
             logger.warning(f"⚠️  飞书 Docx 文档自动更新失败: {e}")
             if history_file:
                 logger.info(f"   内容已保存到本地文件: {history_file}")
-                logger.info("   建议：手动将 Markdown 内容导入到飞书文档（飞书支持 Markdown 导入）")
+                logger.info("   建议：手动将 Markdown 内容导入到飞书文档（飞书支持 Markdown 导入），或检查 FEISHU_USER_ACCESS_TOKEN 是否有效")
             return True
         
     except Exception as e:
