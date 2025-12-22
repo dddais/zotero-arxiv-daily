@@ -155,6 +155,36 @@ if __name__ == '__main__':
         help="Language of TLDR",
         default="English",
     )
+    add_argument(
+        "--feishu_app_id",
+        type=str,
+        help="Feishu App ID",
+        default=None,
+    )
+    add_argument(
+        "--feishu_app_secret",
+        type=str,
+        help="Feishu App Secret",
+        default=None,
+    )
+    add_argument(
+        "--feishu_chat_id",
+        type=str,
+        help="Feishu Chat ID (group chat)",
+        default=None,
+    )
+    add_argument(
+        "--feishu_doc_token",
+        type=str,
+        help="Feishu Document Token",
+        default=None,
+    )
+    add_argument(
+        "--feishu_history_file",
+        type=str,
+        help="Local history markdown file path (e.g., history.md)",
+        default=None,
+    )
     parser.add_argument('--debug', action='store_true', help='Debug mode')
     args = parser.parse_args()
     assert (
@@ -197,4 +227,39 @@ if __name__ == '__main__':
     logger.info("Sending email...")
     send_email(args.sender, args.receiver, args.sender_password, args.smtp_server, args.smtp_port, html)
     logger.success("Email sent successfully! If you don't receive the email, please check the configuration and the junk box.")
+    
+    # 发送飞书消息和更新文档
+    if args.feishu_app_id and args.feishu_app_secret:
+        from feishu_utils import send_feishu_group_message, update_feishu_document
+        import datetime
+        
+        date_str = datetime.datetime.now().strftime('%Y年%m月%d日')
+        
+        # 发送群聊消息
+        if args.feishu_chat_id:
+            logger.info("Sending Feishu group message...")
+            send_feishu_group_message(
+                papers=papers,
+                app_id=args.feishu_app_id,
+                app_secret=args.feishu_app_secret,
+                chat_id=args.feishu_chat_id,
+                date_str=date_str
+            )
+        else:
+            logger.warning("FEISHU_CHAT_ID not provided, skipping group message.")
+        
+        # 更新文档
+        if args.feishu_doc_token:
+            logger.info("Updating Feishu document...")
+            update_feishu_document(
+                papers=papers,
+                app_id=args.feishu_app_id,
+                app_secret=args.feishu_app_secret,
+                doc_token=args.feishu_doc_token,
+                history_file=args.feishu_history_file
+            )
+        else:
+            logger.warning("FEISHU_DOC_TOKEN not provided, skipping document update.")
+    else:
+        logger.info("Feishu credentials not provided, skipping Feishu features.")
 
