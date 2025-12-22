@@ -185,6 +185,12 @@ if __name__ == '__main__':
         help="Local history markdown file path (e.g., history.md)",
         default=None,
     )
+    add_argument(
+        "--feishu_doc_url",
+        type=str,
+        help="Feishu Document URL (for card button). If not provided but doc_token exists, will use https://open.feishu.cn/docx/{doc_token}",
+        default=None,
+    )
     parser.add_argument('--debug', action='store_true', help='Debug mode')
     args = parser.parse_args()
     assert (
@@ -243,7 +249,8 @@ if __name__ == '__main__':
                 app_id=args.feishu_app_id,
                 app_secret=args.feishu_app_secret,
                 chat_id=args.feishu_chat_id,
-                date_str=date_str
+                date_str=date_str,
+                doc_url=doc_url,
             )
         else:
             logger.warning("FEISHU_CHAT_ID not provided, skipping group message.")
@@ -260,6 +267,11 @@ if __name__ == '__main__':
             )
         else:
             logger.warning("FEISHU_DOC_TOKEN not provided, skipping document update.")
+
+        # 构造文档 URL，用于卡片按钮（优先使用显式 doc_url）
+        doc_url = args.feishu_doc_url
+        if not doc_url and args.feishu_doc_token:
+            doc_url = f"https://open.feishu.cn/docx/{args.feishu_doc_token}"
     else:
         logger.info("Feishu credentials not provided, skipping Feishu features.")
 

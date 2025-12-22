@@ -66,34 +66,64 @@ def build_paper_summary(p: ArxivPaper) -> dict:
     }
 
 
-def build_feishu_interactive_message(papers: List[ArxivPaper], date_str: Optional[str] = None) -> dict:
+def build_feishu_interactive_message(papers: List[ArxivPaper], date_str: Optional[str] = None, doc_url: Optional[str] = None) -> dict:
     """
-    构建飞书消息（简化为纯 text，最大兼容）
+    构建飞书卡片：只放概要（前 3 篇）+ 查看详情按钮（跳转文档）
     """
     if date_str is None:
         date_str = datetime.datetime.now().strftime('%Y年%m月%d日')
 
+    title = f"Daily arXiv - {date_str}"
+
     if len(papers) == 0:
-        text = f"📚 Daily arXiv - {date_str}\n今天没有新论文，好好休息吧！😊"
+        body_md = "今天没有新论文，好好休息吧！😊"
+        top_md = f"**{title}**\n\n{body_md}"
     else:
-        lines = [f"📚 Daily arXiv - {date_str}", f"共推荐 {len(papers)} 篇论文", ""]
-        for idx, p in enumerate(papers, 1):
+        top_md = f"**{title}**\n\n今日推荐 {len(papers)} 篇论文，摘要如下（前 3 篇）：\n\n"
+        lines = []
+        for idx, p in enumerate(papers[:3], 1):
             info = build_paper_summary(p)
-            lines.append(f"{idx}. {info['title']} {info['stars']}")
-            lines.append(f"作者: {info['authors']}")
-            lines.append(f"关键词: {info['keywords']}")
-            lines.append(f"TLDR: {info['tldr']}")
-            links = f"arXiv: https://arxiv.org/abs/{info['arxiv_id']} | PDF: {info['pdf_url']}"
-            if info["code_url"]:
-                links += f" | Code: {info['code_url']}"
-            lines.append(links)
-            lines.append("-" * 24)
-        text = "\n".join(lines)
+            line = (
+                f"{idx}. **{info['title']}** {info['stars']}\n"
+                f"作者: {info['authors']}\n"
+                f"关键词: {info['keywords']}\n"
+            )
+            lines.append(line)
+        body_md = "\n".join(lines).strip()
+        top_md = top_md + body_md
+
+    elements = [
+        {
+            "tag": "div",
+            "text": {
+                "tag": "lark_md",
+                "content": top_md
+            }
+        }
+    ]
+
+    if doc_url:
+        elements.append({
+            "tag": "action",
+            "actions": [
+                {
+                    "tag": "button",
+                    "text": {"tag": "plain_text", "content": "查看全部详情"},
+                    "type": "primary",
+                    "url": doc_url
+                }
+            ]
+        })
 
     return {
-        "msg_type": "text",
-        "content": {
-            "text": text
+        "msg_type": "interactive",
+        "card": {
+            "config": {"wide_screen_mode": True},
+            "header": {
+                "title": {"tag": "plain_text", "content": title},
+                "template": "blue"
+            },
+            "elements": elements
         }
     }
 
@@ -239,7 +269,8 @@ def send_feishu_group_message(
     app_id: str,
     app_secret: str,
     chat_id: str,
-    date_str: Optional[str] = None
+    date_str: Optional[str] = None,
+    doc_url: Optional[str] = None,
 ) -> bool:
     """
     发送飞书群聊消息
@@ -258,8 +289,8 @@ def send_feishu_group_message(
         token = get_tenant_access_token(app_id, app_secret)
         url = "https://open.feishu.cn/open-apis/im/v1/messages"
         
-        # 构建消息（使用 interactive 类型支持折叠）
-        message = build_feishu_interactive_message(papers, date_str)
+        # 构建消息（卡片概要 + 查看详情按钮）
+        message = build_feishu_interactive_message(papers, date_str, doc_url)
         
         headers = {
             "Authorization": f"Bearer {token}",
