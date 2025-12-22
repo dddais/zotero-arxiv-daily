@@ -11,8 +11,8 @@ import sys
 
 # ========== 配置区域 ==========
 # 请在这里填入你的飞书应用凭证
-FEISHU_APP_ID = os.getenv("FEISHU_APP_ID", "cli_a9c25231e0f9dced")  # 替换为你的 App ID
-FEISHU_APP_SECRET = os.getenv("FEISHU_APP_SECRET", "VOcFC7pl2KqFHNaFLv3stbUUStKFhf1F")  # 替换为你的 App Secret
+FEISHU_APP_ID = os.getenv("FEISHU_APP_ID", "cli_a9c27578bfb8dcd5")  # 替换为你的 App ID
+FEISHU_APP_SECRET = os.getenv("FEISHU_APP_SECRET", "zWePqI6WS7JX1vmjmazs1EgR1ekXNRL7")  # 替换为你的 App Secret
 # ==============================
 
 def get_chat_list():
