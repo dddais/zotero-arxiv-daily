@@ -633,6 +633,13 @@ def update_feishu_document(
             # 构造块列表：参考邮件样式，但以 Docx 文本块的形式表达
             blocks: List[Block] = build_docx_blocks_for_papers(papers, date_str)
 
+            # 检查 blocks 是否为空，API 要求 children 数组至少有一个元素
+            if not blocks or len(blocks) == 0:
+                logger.warning(f"⚠️  构造的 Docx 块列表为空（papers数量: {len(papers)}），跳过文档更新")
+                return True
+            
+            logger.info(f"📝 准备插入 {len(blocks)} 个块到飞书文档")
+
             request = CreateDocumentBlockChildrenRequest.builder() \
                 .document_id(doc_token) \
                 .block_id(doc_token) \
