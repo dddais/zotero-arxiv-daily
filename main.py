@@ -245,7 +245,7 @@ if __name__ == '__main__':
         doc_url = args.feishu_doc_url
         if not doc_url and args.feishu_doc_token:
             # 你当前使用的飞书文档链接前缀，保持与实际环境一致
-            doc_url = f"https://x2-robot.feishu.cn/wiki/{args.feishu_doc_token}"
+            doc_url = f"https://x2-robot.feishu.cn/docx/{args.feishu_doc_token}"
         
         # 发送群聊消息
         if args.feishu_chat_id:

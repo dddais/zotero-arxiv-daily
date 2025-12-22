@@ -354,6 +354,8 @@ def build_docx_blocks_for_papers(
             TextRun,
             TextStyle,
             TextElementStyle,
+            Heading1,
+            Heading2,
         )
     except Exception:
         # 理论上不会走到这里，因为上层已导入；保险兜底
@@ -379,10 +381,10 @@ def build_docx_blocks_for_papers(
     blocks.append(
         Block.builder()
         .block_type(3)
-        .text(
-            Text.builder()
-            .style(TextStyle.builder().build())
+        .heading1(
+            Heading1.builder()
             .elements(title_elements)
+            .style(TextStyle.builder().build())
             .build()
         )
         .build()
@@ -448,10 +450,10 @@ def build_docx_blocks_for_papers(
         blocks.append(
             Block.builder()
             .block_type(4)
-            .text(
-                Text.builder()
-                .style(TextStyle.builder().build())
+            .heading2(
+                Heading2.builder()
                 .elements([title_el])
+                .style(TextStyle.builder().build())
                 .build()
             )
             .build()
@@ -464,7 +466,7 @@ def build_docx_blocks_for_papers(
         ).build()
         blocks.append(
             Block.builder()
-            .block_type(15)
+            .block_type(2)
             .text(
                 Text.builder()
                 .style(TextStyle.builder().build())
@@ -485,7 +487,7 @@ def build_docx_blocks_for_papers(
             ).build()
             blocks.append(
                 Block.builder()
-                .block_type(15)
+                .block_type(2)
                 .text(
                     Text.builder()
                     .style(TextStyle.builder().build())
@@ -502,7 +504,7 @@ def build_docx_blocks_for_papers(
         ).build()
         blocks.append(
             Block.builder()
-            .block_type(15)
+            .block_type(2)
             .text(
                 Text.builder()
                 .style(TextStyle.builder().build())
