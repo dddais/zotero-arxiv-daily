@@ -17,6 +17,12 @@ jobs:
         with:
           version: '0.5.4'
 
+      - name: Sync deps
+        run: uv sync
+
+      - name: Install lark-oapi (Feishu)
+        run: uv pip install lark-oapi
+
       - name: Run script
         env:
           ZOTERO_ID: ${{ secrets.ZOTERO_ID }}
