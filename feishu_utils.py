@@ -633,39 +633,54 @@ def update_feishu_document(
                 return True
             
             logger.info(f"📝 准备插入 {len(blocks)} 个块到飞书文档")
-
-            request = CreateDocumentBlockChildrenRequest.builder() \
-                .document_id(doc_token) \
-                .block_id(doc_token) \
-                .document_revision_id(-1) \
-                .request_body(
-                    CreateDocumentBlockChildrenRequestBody.builder()
-                    .children(blocks)
-                    .index(0)
-                    .build()
-                ) \
-                .build()
-
+            
+            # 飞书 API 限制：children 数组最多 50 个元素，需要分批插入
+            MAX_BLOCKS_PER_BATCH = 50
+            total_batches = (len(blocks) + MAX_BLOCKS_PER_BATCH - 1) // MAX_BLOCKS_PER_BATCH
+            logger.info(f"📦 将分 {total_batches} 批插入（每批最多 {MAX_BLOCKS_PER_BATCH} 个块）")
+            
             option = lark.RequestOption.builder() \
                 .user_access_token(user_access_token) \
                 .build()
+            
+            # 分批插入，每次插入到 index=0（文档最前面）
+            for batch_idx in range(total_batches):
+                start_idx = batch_idx * MAX_BLOCKS_PER_BATCH
+                end_idx = min(start_idx + MAX_BLOCKS_PER_BATCH, len(blocks))
+                batch_blocks = blocks[start_idx:end_idx]
+                
+                logger.debug(f"📤 插入第 {batch_idx + 1}/{total_batches} 批（块 {start_idx + 1}-{end_idx}，共 {len(batch_blocks)} 个）")
+                
+                request = CreateDocumentBlockChildrenRequest.builder() \
+                    .document_id(doc_token) \
+                    .block_id(doc_token) \
+                    .document_revision_id(-1) \
+                    .request_body(
+                        CreateDocumentBlockChildrenRequestBody.builder()
+                        .children(batch_blocks)
+                        .index(0)  # 每次都插入到文档最前面
+                        .build()
+                    ) \
+                    .build()
+                
+                response = client.docx.v1.document_block_children.create(request, option)
+                
+                if not response.success():
+                    error_detail = ""
+                    try:
+                        if hasattr(response, 'raw') and response.raw:
+                            import json
+                            error_detail = f" | 响应详情: {json.dumps(json.loads(response.raw.content), indent=2, ensure_ascii=False)}"
+                    except Exception:
+                        pass
+                    logger.warning(
+                        f"⚠️  飞书 Docx 文档 API 返回错误（第 {batch_idx + 1} 批）: {response.code} {response.msg} | log_id: {response.get_log_id()}{error_detail}"
+                    )
+                    return True
+                
+                logger.debug(f"✅ 第 {batch_idx + 1}/{total_batches} 批插入成功")
 
-            response = client.docx.v1.document_block_children.create(request, option)
-
-            if not response.success():
-                error_detail = ""
-                try:
-                    if hasattr(response, 'raw') and response.raw:
-                        import json
-                        error_detail = f" | 响应详情: {json.dumps(json.loads(response.raw.content), indent=2, ensure_ascii=False)}"
-                except Exception:
-                    pass
-                logger.warning(
-                    f"⚠️  飞书 Docx 文档 API 返回错误: {response.code} {response.msg} | log_id: {response.get_log_id()}{error_detail}"
-                )
-                return True
-
-            logger.success("✅ 飞书 Docx 文档更新成功（追加模式，Docx SDK）")
+            logger.success(f"✅ 飞书 Docx 文档更新成功（共 {len(blocks)} 个块，分 {total_batches} 批插入）")
             return True
 
         except Exception as e:
