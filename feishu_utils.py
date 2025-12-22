@@ -465,24 +465,24 @@ def build_docx_blocks_for_papers(
             .build()
         )
 
-        # 作者（暂时使用普通文本块，block_type=14 引用块可能不支持 text 字段）
+        # 作者（引用块，block_type=15）
         author_line = f"作者: {info['authors']}"
         author_el = TextElement.builder().text_run(
             TextRun.builder().content(author_line).build()
         ).build()
         blocks.append(
             Block.builder()
-            .block_type(2)
-            .text(
+            .block_type(15)
+            .quote(
                 Text.builder()
                 .elements([author_el])
-                .style(TextStyle.builder().build())
+                .style(TextStyle.builder().align(1).build())  # align=1 表示左对齐
                 .build()
             )
             .build()
         )
 
-        # 机构（最多 3 个，暂时使用普通文本块）
+        # 机构（最多 3 个，引用块）
         if info["affiliations"]:
             affil_list = info["affiliations"][:3]
             if len(info["affiliations"]) > 3:
@@ -493,28 +493,28 @@ def build_docx_blocks_for_papers(
             ).build()
             blocks.append(
                 Block.builder()
-                .block_type(2)
-                .text(
+                .block_type(15)
+                .quote(
                     Text.builder()
                     .elements([affil_el])
-                    .style(TextStyle.builder().build())
+                    .style(TextStyle.builder().align(1).build())
                     .build()
                 )
                 .build()
             )
 
-        # 关键词（暂时使用普通文本块）
+        # 关键词（引用块）
         kw_line = f"关键词: {info['keywords']}"
         kw_el = TextElement.builder().text_run(
             TextRun.builder().content(kw_line).build()
         ).build()
         blocks.append(
             Block.builder()
-            .block_type(2)
-            .text(
+            .block_type(15)
+            .quote(
                 Text.builder()
                 .elements([kw_el])
-                .style(TextStyle.builder().build())
+                .style(TextStyle.builder().align(1).build())
                 .build()
             )
             .build()
