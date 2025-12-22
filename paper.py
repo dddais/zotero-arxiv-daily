@@ -239,7 +239,7 @@ class ArxivPaper:
             if match:
                 conclusion = match.group(0)
         llm = get_llm()
-        prompt = """Given the title, abstract, introduction and the conclusion (if any) of a scientific paper in latex format, generate exactly four concise keywords in ENGILISH that best describe the core topics of the paper.
+        prompt = """Given the title, abstract, introduction and the conclusion (if any) of a scientific paper in latex format, generate exactly four concise and professional keywords in ENGILISH that best describe the core topics of the paper.
 The output MUST be a valid Python list of four strings, like ['keyword1', 'keyword2', 'keyword3', 'keyword4'], and contain nothing else.
 
 \\title{__TITLE__}
