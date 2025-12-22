@@ -381,13 +381,15 @@ def build_docx_blocks_for_papers(
         )
         .build()
     ]
+    # 一级标题：使用 heading1 字段（block_type=3）
+    # 根据飞书文档，heading1 的结构和 text 类似，但字段名不同
     blocks.append(
         Block.builder()
-        .block_type(2)
-        .text(
+        .block_type(3)
+        .heading1(
             Text.builder()
             .elements(title_elements)
-            .style(TextStyle.builder().build())
+            .style(TextStyle.builder().align(2).build())  # align=2 表示居中
             .build()
         )
         .build()
@@ -450,10 +452,11 @@ def build_docx_blocks_for_papers(
             )
             .build()
         ).build()
+        # 二级标题：使用 heading2 字段（block_type=4）
         blocks.append(
             Block.builder()
-            .block_type(2)
-            .text(
+            .block_type(4)
+            .heading2(
                 Text.builder()
                 .elements([title_el])
                 .style(TextStyle.builder().build())
