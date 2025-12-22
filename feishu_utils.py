@@ -68,102 +68,43 @@ def build_paper_summary(p: ArxivPaper) -> dict:
 
 def build_feishu_interactive_message(papers: List[ArxivPaper], date_str: Optional[str] = None) -> dict:
     """
-    构建飞书 interactive 类型的卡片消息（支持折叠）
+    构建飞书消息（简化为 post 类型，避免卡片 schema 报 400）
     """
     if date_str is None:
         date_str = datetime.datetime.now().strftime('%Y年%m月%d日')
-    
-    if len(papers) == 0:
-        return {
-            "msg_type": "interactive",
-            "card": {
-                "config": {"wide_screen_mode": True},
-                "header": {
-                    "title": {
-                        "tag": "plain_text",
-                        "content": f"📚 Daily arXiv - {date_str}"
-                    },
-                    "template": "blue"
-                },
-                "elements": [
-                    {
-                        "tag": "div",
-                        "text": {
-                            "tag": "lark_md",
-                            "content": "今天没有新论文，好好休息吧！😊"
-                        }
-                    }
-                ]
-            }
-        }
-    
-    # 构建卡片元素
-    elements = []
-    
-    # 摘要信息
-    summary_text = f"**共推荐 {len(papers)} 篇论文**\n\n"
-    for idx, p in enumerate(papers[:5], 1):  # 最多显示前5篇的摘要
-        paper_info = build_paper_summary(p)
-        summary_text += f"{idx}. **{paper_info['title']}** {paper_info['stars']}\n"
-        summary_text += f"   作者: {paper_info['authors']} | 关键词: {paper_info['keywords']}\n\n"
-    
-    if len(papers) > 5:
-        summary_text += f"*...还有 {len(papers) - 5} 篇论文，点击展开查看全部*\n"
-    
-    elements.append({
-        "tag": "div",
-        "text": {
-            "tag": "lark_md",
-            "content": summary_text
-        }
-    })
-    
-    # 详细信息（可折叠）
-    detail_sections = []
-    for idx, p in enumerate(papers, 1):
-        paper_info = build_paper_summary(p)
-        detail_text = f"### {idx}. {paper_info['title']} {paper_info['stars']}\n\n"
-        detail_text += f"**作者:** {paper_info['authors']}\n\n"
-        detail_text += f"**关键词:** {paper_info['keywords']}\n\n"
-        detail_text += f"**TLDR:** {paper_info['tldr']}\n\n"
-        detail_text += f"**链接:** [arXiv](https://arxiv.org/abs/{paper_info['arxiv_id']}) | [PDF]({paper_info['pdf_url']})"
-        if paper_info['code_url']:
-            detail_text += f" | [Code]({paper_info['code_url']})"
-        detail_text += "\n\n---\n\n"
-        
-        detail_sections.append({
-            "tag": "div",
-            "text": {
-                "tag": "lark_md",
-                "content": detail_text
-            }
-        })
-    
-    # 使用折叠面板
-    elements.append({
-        "tag": "collapsible",
-        "collapsible": {
-            "tag": "div",
-            "text": {
-                "tag": "lark_md",
-                "content": "📖 **点击展开查看全部论文详情**"
-            }
-        },
-        "elements": detail_sections
-    })
-    
+
+    def build_blocks():
+        blocks = []
+        if len(papers) == 0:
+            blocks.append([{"tag": "text", "text": "今天没有新论文，好好休息吧！😊"}])
+            return blocks
+
+        blocks.append([{"tag": "text", "text": f"📚 Daily arXiv - {date_str}\n", "style": {"bold": True}}])
+        blocks.append([{"tag": "text", "text": f"共推荐 {len(papers)} 篇论文\n\n"}])
+
+        for idx, p in enumerate(papers, 1):
+            info = build_paper_summary(p)
+            blocks.append([{"tag": "text", "text": f"{idx}. {info['title']} {info['stars']}\n", "style": {"bold": True}}])
+            blocks.append([{"tag": "text", "text": f"作者: {info['authors']}\n"}])
+            blocks.append([{"tag": "text", "text": f"关键词: {info['keywords']}\n"}])
+            blocks.append([{"tag": "text", "text": f"TLDR: {info['tldr']}\n"}])
+
+            links = f"arXiv: https://arxiv.org/abs/{info['arxiv_id']}  |  PDF: {info['pdf_url']}"
+            if info["code_url"]:
+                links += f"  |  Code: {info['code_url']}"
+            blocks.append([{"tag": "text", "text": links + "\n"}])
+            blocks.append([{"tag": "text", "text": "—" * 20 + "\n"}])
+        return blocks
+
     return {
-        "msg_type": "interactive",
-        "card": {
-            "config": {"wide_screen_mode": True},
-            "header": {
-                "title": {
-                    "tag": "plain_text",
-                    "content": f"📚 Daily arXiv - {date_str}"
-                },
-                "template": "blue"
-            },
-            "elements": elements
+        "msg_type": "post",
+        "content": {
+            "post": {
+                "zh_cn": {
+                    "title": f"Daily arXiv - {date_str}",
+                    "content": build_blocks()
+                }
+            }
         }
     }
 
@@ -346,11 +287,16 @@ def send_feishu_group_message(
         }
         
         resp = requests.post(url, headers=headers, params=params, json=payload, timeout=30)
-        resp.raise_for_status()
+        try:
+            resp.raise_for_status()
+        except Exception as http_e:
+            logger.error(f"发送飞书消息 HTTP错误: {http_e}, 响应: {resp.text}")
+            return False
+
         data = resp.json()
         
         if data.get("code") != 0:
-            logger.error(f"发送飞书消息失败: {data.get('msg')}")
+            logger.error(f"发送飞书消息失败: {data.get('code')} {data.get('msg')} | 响应: {data}")
             return False
         
         logger.success(f"✅ 飞书群聊消息发送成功 (共 {len(papers)} 篇论文)")
