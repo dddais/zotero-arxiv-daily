@@ -39,8 +39,10 @@ jobs:
           # OPENAI_API_BASE: ${{ secrets.OPENAI_API_BASE }}
           # MODEL_NAME: ${{ secrets.MODEL_NAME }}
           LANGUAGE: ${{ vars.LANGUAGE }}
-          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
-          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+          FEISHU_APP_ID: cli_a9c27578bfb8dcd5
+          FEISHU_APP_SECRET: zWePqI6WS7JX1vmjmazs1EgR1ekXNRL7
+          # FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+          # FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
           FEISHU_CHAT_ID: ${{ secrets.FEISHU_CHAT_ID }}
           FEISHU_DOC_TOKEN: ${{ secrets.FEISHU_DOC_TOKEN }}
           FEISHU_HISTORY_FILE: history.md 
