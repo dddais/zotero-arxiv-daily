@@ -2,7 +2,6 @@
 飞书工具模块：发送群聊消息和更新文档
 """
 import os
-import re
 import requests
 import datetime
 from typing import Optional, List
@@ -87,15 +86,21 @@ def build_feishu_interactive_message(
         lines = [
             f"📚 **{title}**",
             "",
-            f"今日推荐 {len(papers)} 篇论文，下面是前 3 篇简要信息：",
+            f"今日推荐 {len(papers)} 篇论文，下面是前 3 篇精简信息：",
             "",
         ]
         for idx, p in enumerate(papers[:3], 1):
             info = build_paper_summary(p)
+            # TLDR 做 1 行截断，避免群里太长
+            tldr_short = info["tldr"].replace("\n", " ")
+            if len(tldr_short) > 120:
+                tldr_short = tldr_short[:117] + "..."
             one = [
                 f"{idx}. **{info['title']}** {info['stars']}",
+                f"   作者: {info['authors']}",
                 f"   关键词: {info['keywords']}",
-                f"   [arXiv 链接](https://arxiv.org/abs/{info['arxiv_id']})",
+                f"   TLDR: {tldr_short}",
+                f"   [arXiv](https://arxiv.org/abs/{info['arxiv_id']}) | [PDF]({info['pdf_url']})",
                 "",
             ]
             lines.extend(one)
@@ -330,63 +335,234 @@ def send_feishu_group_message(
         return False
 
 
-def build_markdown_for_doc(papers: List[ArxivPaper], date_str: Optional[str] = None) -> str:
+def build_docx_blocks_for_papers(
+    papers: List[ArxivPaper],
+    date_str: str,
+):
     """
-    构建用于飞书文档的 Markdown 内容
+    参考邮件样式，为 Docx 文档构建一组 Block：
+    - 顶部：日期 + 总数
+    - 每篇：标题（加粗+星级）/ 作者 / 机构 / 关键词 / TLDR / 链接 + 分隔线
     """
-    if date_str is None:
-        date_str = datetime.datetime.now().strftime('%Y年%m月%d日')
-    
-    if len(papers) == 0:
-        return f"## {date_str}\n\n今天没有新论文，好好休息吧！😊\n\n---\n\n"
-    
-    md_lines = [f"## {date_str}\n"]
-    md_lines.append(f"**共推荐 {len(papers)} 篇论文**\n\n")
-    
+    try:
+        import lark_oapi as lark  # noqa: F401
+        from lark_oapi.api.docx.v1 import (
+            Block,
+            Text,
+            TextElement,
+            TextRun,
+            TextStyle,
+            TextElementStyle,
+        )
+    except Exception:
+        # 理论上不会走到这里，因为上层已导入；保险兜底
+        return []
+
+    blocks: List[Block] = []
+
+    # 顶部标题：日期
+    title_elements = [
+        TextElement.builder()
+        .text_run(
+            TextRun.builder()
+            .content(f"Daily arXiv - {date_str}")
+            .text_element_style(
+                TextElementStyle.builder()
+                .bold(True)
+                .build()
+            )
+            .build()
+        )
+        .build()
+    ]
+    blocks.append(
+        Block.builder()
+        .block_type(2)
+        .text(
+            Text.builder()
+            .style(TextStyle.builder().build())
+            .elements(title_elements)
+            .build()
+        )
+        .build()
+    )
+
+    # 顶部第二行：总数
+    summary_elements = [
+        TextElement.builder()
+        .text_run(
+            TextRun.builder()
+            .content(f"共推荐 {len(papers)} 篇论文")
+            .build()
+        )
+        .build()
+    ]
+    blocks.append(
+        Block.builder()
+        .block_type(2)
+        .text(
+            Text.builder()
+            .style(TextStyle.builder().build())
+            .elements(summary_elements)
+            .build()
+        )
+        .build()
+    )
+
+    # 空行
+    def _blank_block():
+        return (
+            Block.builder()
+            .block_type(2)
+            .text(
+                Text.builder()
+                .style(TextStyle.builder().build())
+                .elements([
+                    TextElement.builder()
+                    .text_run(TextRun.builder().content("").build())
+                    .build()
+                ])
+                .build()
+            )
+            .build()
+        )
+
+    blocks.append(_blank_block())
+
     for idx, p in enumerate(papers, 1):
-        paper_info = build_paper_summary(p)
-        
-        md_lines.append(f"### {idx}. {paper_info['title']} {paper_info['stars']}\n")
-        md_lines.append(f"**作者:** {paper_info['authors']}\n\n")
-        
-        if paper_info['affiliations']:
-            affil_str = ', '.join(paper_info['affiliations'][:3])
-            if len(paper_info['affiliations']) > 3:
-                affil_str += ', ...'
-            md_lines.append(f"**机构:** {affil_str}\n\n")
-        
-        md_lines.append(f"**关键词:** {paper_info['keywords']}\n\n")
-        md_lines.append(f"**TLDR:** {paper_info['tldr']}\n\n")
-        md_lines.append(f"**链接:** [arXiv](https://arxiv.org/abs/{paper_info['arxiv_id']}) | [PDF]({paper_info['pdf_url']})")
-        
-        if paper_info['code_url']:
-            md_lines.append(f" | [Code]({paper_info['code_url']})")
-        
-        md_lines.append("\n\n---\n\n")
-    
-    return ''.join(md_lines)
+        info = build_paper_summary(p)
 
+        # 标题行：序号 + 标题 + 星级（加粗）
+        title_line = f"{idx}. {info['title']} {info['stars']}"
+        title_el = TextElement.builder().text_run(
+            TextRun.builder()
+            .content(title_line)
+            .text_element_style(
+                TextElementStyle.builder()
+                .bold(True)
+                .build()
+            )
+            .build()
+        ).build()
+        blocks.append(
+            Block.builder()
+            .block_type(2)
+            .text(
+                Text.builder()
+                .style(TextStyle.builder().build())
+                .elements([title_el])
+                .build()
+            )
+            .build()
+        )
 
-def markdown_to_docx_paragraphs(md: str) -> List[str]:
-    """
-    将用于邮件/本地历史的 Markdown 文本，转换为适合 Docx 文档的纯文本段落列表。
-    - 去掉标题符号(#)
-    - 去掉粗体符号(**)
-    - 将 Markdown 链接 [text](url) 转换为 "text (url)"
-    - 将分隔线 --- 转成一行长横线
-    """
-    # 去掉行首的 # 级标题
-    text = re.sub(r'^[#]{1,6}\s*', '', md, flags=re.MULTILINE)
-    # 去掉粗体标记 **
-    text = text.replace('**', '')
-    # 转换链接 [text](url) -> text (url)
-    text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'\1 (\2)', text)
-    # 将分隔线 --- 转为一行横线
-    text = re.sub(r'^-{3,}\s*$', '--------------------', text, flags=re.MULTILINE)
+        # 作者
+        author_line = f"作者: {info['authors']}"
+        author_el = TextElement.builder().text_run(
+            TextRun.builder().content(author_line).build()
+        ).build()
+        blocks.append(
+            Block.builder()
+            .block_type(2)
+            .text(
+                Text.builder()
+                .style(TextStyle.builder().build())
+                .elements([author_el])
+                .build()
+            )
+            .build()
+        )
 
-    # 按空行拆成段落
-    paragraphs = [p.strip() for p in text.split('\n\n') if p.strip()]
-    return paragraphs
+        # 机构（最多 3 个）
+        if info["affiliations"]:
+            affil_list = info["affiliations"][:3]
+            if len(info["affiliations"]) > 3:
+                affil_list.append("...")
+            affil_line = "机构: " + ", ".join(affil_list)
+            affil_el = TextElement.builder().text_run(
+                TextRun.builder().content(affil_line).build()
+            ).build()
+            blocks.append(
+                Block.builder()
+                .block_type(2)
+                .text(
+                    Text.builder()
+                    .style(TextStyle.builder().build())
+                    .elements([affil_el])
+                    .build()
+                )
+                .build()
+            )
+
+        # 关键词
+        kw_line = f"关键词: {info['keywords']}"
+        kw_el = TextElement.builder().text_run(
+            TextRun.builder().content(kw_line).build()
+        ).build()
+        blocks.append(
+            Block.builder()
+            .block_type(2)
+            .text(
+                Text.builder()
+                .style(TextStyle.builder().build())
+                .elements([kw_el])
+                .build()
+            )
+            .build()
+        )
+
+        # TLDR
+        tldr_line = f"TLDR: {info['tldr']}"
+        tldr_el = TextElement.builder().text_run(
+            TextRun.builder().content(tldr_line).build()
+        ).build()
+        blocks.append(
+            Block.builder()
+            .block_type(2)
+            .text(
+                Text.builder()
+                .style(TextStyle.builder().build())
+                .elements([tldr_el])
+                .build()
+            )
+            .build()
+        )
+
+        # 链接行
+        link_line = f"链接: https://arxiv.org/abs/{info['arxiv_id']} | PDF: {info['pdf_url']}"
+        link_el = TextElement.builder().text_run(
+            TextRun.builder().content(link_line).build()
+        ).build()
+        blocks.append(
+            Block.builder()
+            .block_type(2)
+            .text(
+                Text.builder()
+                .style(TextStyle.builder().build())
+                .elements([link_el])
+                .build()
+            )
+            .build()
+        )
+
+        # 分隔线 + 空行
+        sep_el = TextElement.builder().text_run(
+            TextRun.builder().content("────────────────────").build()
+        ).build()
+        blocks.append(
+            Block.builder()
+            .block_type(2)
+            .text(
+                Text.builder()
+                .style(TextStyle.builder().build())
+                .elements([sep_el])
+                .build()
+            )
+            .build()
+        )
+        blocks.append(_blank_block())
+
+    return blocks
 
 
 def update_feishu_document(
@@ -411,26 +587,8 @@ def update_feishu_document(
     """
     try:
         date_str = datetime.datetime.now().strftime('%Y年%m月%d日')
-        md_content = build_markdown_for_doc(papers, date_str)
-        docx_paragraphs = markdown_to_docx_paragraphs(md_content)
-        
-        # 1. 更新本地历史文件（如果指定，保留完整 Markdown）
-        if history_file:
-            try:
-                if os.path.exists(history_file):
-                    with open(history_file, 'r', encoding='utf-8') as f:
-                        existing_content = f.read()
-                    # 在文件开头插入新内容
-                    with open(history_file, 'w', encoding='utf-8') as f:
-                        f.write(md_content + existing_content)
-                else:
-                    # 首次创建，添加标题
-                    with open(history_file, 'w', encoding='utf-8') as f:
-                        f.write(f"# Daily arXiv 推荐历史\n\n{md_content}")
-                logger.info(f"✅ 本地历史文件已更新: {history_file}")
-            except Exception as e:
-                logger.warning(f"更新本地历史文件失败: {e}")
-        
+
+        # 1. 不再维护本地 Markdown 文件，直接构造 Docx Block 结构
         # 2. 使用 Docx SDK 追加更新飞书 Docx 文档内容（docx/v1），以用户身份调用
         try:
             import lark_oapi as lark
@@ -442,6 +600,7 @@ def update_feishu_document(
                 TextElement,
                 TextRun,
                 TextStyle,
+                TextElementStyle,
             )
 
             user_access_token = os.getenv("FEISHU_USER_ACCESS_TOKEN")
@@ -455,27 +614,8 @@ def update_feishu_document(
                 .log_level(lark.LogLevel.INFO) \
                 .build()
 
-            # 构造块列表：block_type=2 表示段落块，使用 Text 结构承载文本
-            blocks: List[Block] = []
-            for para in docx_paragraphs:
-                block = Block.builder() \
-                    .block_type(2) \
-                    .text(
-                        Text.builder()
-                        .style(TextStyle.builder().build())
-                        .elements([
-                            TextElement.builder()
-                            .text_run(
-                                TextRun.builder()
-                                .content(para)
-                                .build()
-                            )
-                            .build()
-                        ])
-                        .build()
-                    ) \
-                    .build()
-                blocks.append(block)
+            # 构造块列表：参考邮件样式，但以 Docx 文本块的形式表达
+            blocks: List[Block] = build_docx_blocks_for_papers(papers, date_str)
 
             request = CreateDocumentBlockChildrenRequest.builder() \
                 .document_id(doc_token) \
