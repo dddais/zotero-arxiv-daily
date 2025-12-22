@@ -11,6 +11,9 @@ from paper import ArxivPaper
 
 def get_tenant_access_token(app_id: str, app_secret: str) -> str:
     """获取飞书 tenant_access_token"""
+    if not app_id or not app_secret:
+        raise ValueError("app_id or app_secret not found")
+    
     url = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
     payload = {
         "app_id": app_id,
@@ -612,6 +615,11 @@ def update_feishu_document(
                 TextStyle,
                 TextElementStyle,
             )
+
+            # 检查 app_id 和 app_secret 是否提供
+            if not app_id or not app_secret:
+                logger.warning("⚠️  未提供 FEISHU_APP_ID 或 FEISHU_APP_SECRET，无法更新飞书文档")
+                return True
 
             # 使用应用的 tenant_access_token（与发送消息的方式一致）
             tenant_token = get_tenant_access_token(app_id, app_secret)
