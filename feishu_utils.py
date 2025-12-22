@@ -274,6 +274,11 @@ def send_feishu_group_message(
             "receive_id": chat_id,
             **message
         }
+
+        # Feishu 要求 content 为 JSON 字符串；这里做一次兜底转换
+        import json
+        if isinstance(payload.get("content"), dict):
+            payload["content"] = json.dumps(payload["content"], ensure_ascii=False)
         
         resp = requests.post(url, headers=headers, params=params, json=payload, timeout=30)
         try:
