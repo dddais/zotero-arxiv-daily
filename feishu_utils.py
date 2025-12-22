@@ -420,7 +420,8 @@ def update_feishu_document(
             token = get_tenant_access_token(app_id, app_secret)
 
             # doc_token 来自你的 wiki URL: https://x2-robot.feishu.cn/wiki/{doc_token}
-            url = f"https://open.feishu.cn/open-apis/doc/v2/{doc_token}/content"
+            # url = f"https://open.feishu.cn/open-apis/doc/v2/{doc_token}/content"
+            url = f"https://x2-robot.feishu.cn/wiki/{doc_token}"
             headers = {
                 "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json",
