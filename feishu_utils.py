@@ -462,14 +462,14 @@ def build_docx_blocks_for_papers(
             .build()
         )
 
-        # 作者（引用块）
+        # 作者（暂时使用普通文本块，block_type=14 引用块可能不支持 text 字段）
         author_line = f"作者: {info['authors']}"
         author_el = TextElement.builder().text_run(
             TextRun.builder().content(author_line).build()
         ).build()
         blocks.append(
             Block.builder()
-            .block_type(14)
+            .block_type(2)
             .text(
                 Text.builder()
                 .elements([author_el])
@@ -479,7 +479,7 @@ def build_docx_blocks_for_papers(
             .build()
         )
 
-        # 机构（最多 3 个，引用块）
+        # 机构（最多 3 个，暂时使用普通文本块）
         if info["affiliations"]:
             affil_list = info["affiliations"][:3]
             if len(info["affiliations"]) > 3:
@@ -490,7 +490,7 @@ def build_docx_blocks_for_papers(
             ).build()
             blocks.append(
                 Block.builder()
-                .block_type(14)
+                .block_type(2)
                 .text(
                     Text.builder()
                     .elements([affil_el])
@@ -500,14 +500,14 @@ def build_docx_blocks_for_papers(
                 .build()
             )
 
-        # 关键词（引用块）
+        # 关键词（暂时使用普通文本块）
         kw_line = f"关键词: {info['keywords']}"
         kw_el = TextElement.builder().text_run(
             TextRun.builder().content(kw_line).build()
         ).build()
         blocks.append(
             Block.builder()
-            .block_type(14)
+            .block_type(2)
             .text(
                 Text.builder()
                 .elements([kw_el])
@@ -650,8 +650,15 @@ def update_feishu_document(
             response = client.docx.v1.document_block_children.create(request, option)
 
             if not response.success():
+                error_detail = ""
+                try:
+                    if hasattr(response, 'raw') and response.raw:
+                        import json
+                        error_detail = f" | 响应详情: {json.dumps(json.loads(response.raw.content), indent=2, ensure_ascii=False)}"
+                except Exception:
+                    pass
                 logger.warning(
-                    f"⚠️  飞书 Docx 文档 API 返回错误: {response.code} {response.msg} | log_id: {response.get_log_id()}"
+                    f"⚠️  飞书 Docx 文档 API 返回错误: {response.code} {response.msg} | log_id: {response.get_log_id()}{error_detail}"
                 )
                 return True
 
