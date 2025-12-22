@@ -407,126 +407,47 @@ def update_feishu_document(
             except Exception as e:
                 logger.warning(f"更新本地历史文件失败: {e}")
         
-        # 2. 尝试使用 lark_oapi SDK 更新飞书文档（可选功能）
-        # 注意：飞书文档 API 比较复杂，这里提供一个基础实现
-        # 如果 SDK 不可用，会回退到仅维护本地文件
+        # 2. 使用 doc/v2 覆盖更新飞书文档内容（wiki 链接对应的底层文档）
         try:
-            import lark_oapi as lark
-            # 只导入需要的类，避免函数作用域内使用 import *
-            from lark_oapi.api.docx.v1 import (
-                ListDocumentBlockRequest,
-                CreateDocumentBlockChildrenRequest,
-            )
-            
-            client = lark.Client.builder() \
-                .app_id(app_id) \
-                .app_secret(app_secret) \
-                .log_level(lark.LogLevel.INFO) \
-                .build()
-            
-            # 获取文档的第一个 block（用于在开头插入新内容）
-            blocks_request = ListDocumentBlockRequest.builder() \
-                .document_id(doc_token) \
-                .page_size(10) \
-                .build()
-            
-            blocks_response = client.docx.v1.document_block.list(blocks_request)
-            if not blocks_response.success():
-                raise Exception(f"获取文档 blocks 失败: {blocks_response.msg}")
-            
-            # 找到第一个 block 的 ID（用于插入位置）
-            first_block_id = None
-            if blocks_response.data and blocks_response.data.items:
-                first_block_id = blocks_response.data.items[0].block_id
-            
-            # 将 Markdown 内容转换为飞书文档 blocks
-            # 简化处理：将每段内容转换为文本 block
-            import re
-            paragraphs = [p.strip() for p in new_content.split('\n\n') if p.strip()]
-            blocks_to_insert = []
-            
-            for para in paragraphs:
-                if para.startswith('##'):
-                    # 二级标题
-                    text = re.sub(r'^##+\s*', '', para).strip()
-                    blocks_to_insert.append({
-                        "block_type": 2,  # 文本块
-                        "text": {
-                            "elements": [{
-                                "text_run": {
-                                    "content": text,
-                                    "style": {"bold": True}
-                                }
-                            }]
-                        }
-                    })
-                elif para.startswith('---'):
-                    # 分隔线
-                    blocks_to_insert.append({"block_type": 19})  # 分隔线块
-                else:
-                    # 普通文本段落，处理链接
-                    text_runs = []
-                    last_end = 0
-                    link_pattern = r'\[([^\]]+)\]\(([^\)]+)\)'
-                    
-                    for match in re.finditer(link_pattern, para):
-                        if match.start() > last_end:
-                            text_runs.append({
-                                "text_run": {"content": para[last_end:match.start()]}
-                            })
-                        link_text = match.group(1)
-                        link_url = match.group(2)
-                        text_runs.append({
-                            "text_run": {
-                                "content": link_text,
-                                "style": {"link": {"url": link_url}}
-                            }
-                        })
-                        last_end = match.end()
-                    
-                    if last_end < len(para):
-                        text_runs.append({
-                            "text_run": {"content": para[last_end:]}
-                        })
-                    
-                    if not text_runs:
-                        text_runs = [{"text_run": {"content": para}}]
-                    
-                    blocks_to_insert.append({
-                        "block_type": 2,
-                        "text": {"elements": text_runs}
-                    })
-            
-            # 在文档中插入新内容（追加到第一个 block 之前/之后，取决于 API 默认行为）
-            if first_block_id and blocks_to_insert:
-                insert_request = CreateDocumentBlockChildrenRequest.builder() \
-                    .document_id(doc_token) \
-                    .block_id(first_block_id) \
-                    .children(blocks_to_insert) \
-                    .build()
-                
-                insert_response = client.docx.v1.document_block_children.create(insert_request)
-                if insert_response.success():
-                    logger.success(f"✅ 飞书文档更新成功")
-                    return True
-                else:
-                    raise Exception(f"更新失败: {insert_response.msg}")
+            # 准备完整内容：优先使用本地 history 文件，若不存在则用当前 new_content
+            if history_file and os.path.exists(history_file):
+                with open(history_file, "r", encoding="utf-8") as f:
+                    full_content = f.read()
             else:
-                raise Exception("无法找到插入位置或内容为空")
-                
-        except ImportError:
-            logger.warning("⚠️  lark_oapi 未安装，无法自动更新飞书文档")
-            logger.info("   建议：安装 lark_oapi: pip install lark-oapi")
-            if history_file:
-                logger.info(f"   内容已保存到本地文件: {history_file}")
-                logger.info("   你可以手动将 Markdown 内容导入到飞书文档（飞书支持 Markdown 导入）")
-            return True  # 本地文件已更新，返回成功
+                full_content = f"# Daily arXiv 推荐历史\n\n{new_content}"
+
+            # 获取 tenant_access_token
+            token = get_tenant_access_token(app_id, app_secret)
+
+            # doc_token 来自你的 wiki URL: https://x2-robot.feishu.cn/wiki/{doc_token}
+            url = f"https://open.feishu.cn/open-apis/doc/v2/{doc_token}/content"
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            }
+            payload = {"content": full_content}
+
+            resp = requests.put(url, headers=headers, json=payload, timeout=30)
+            try:
+                resp.raise_for_status()
+            except Exception as http_e:
+                logger.warning(f"⚠️  飞书文档 HTTP 更新失败: {http_e}, 响应: {resp.text}")
+                return True  # 本地文件已更新，视为部分成功
+
+            data = resp.json()
+            if data.get("code") != 0:
+                logger.warning(f"⚠️  飞书文档 API 返回错误: {data.get('code')} {data.get('msg')} | 响应: {data}")
+                return True  # 本地文件已更新，视为部分成功
+
+            logger.success("✅ 飞书文档更新成功（doc/v2 覆盖模式）")
+            return True
+
         except Exception as e:
             logger.warning(f"⚠️  飞书文档自动更新失败: {e}")
             if history_file:
                 logger.info(f"   内容已保存到本地文件: {history_file}")
                 logger.info("   建议：手动将 Markdown 内容导入到飞书文档（飞书支持 Markdown 导入）")
-            return True  # 本地文件已更新，返回成功
+            return True
         
     except Exception as e:
         logger.error(f"更新飞书文档时出错: {e}")
