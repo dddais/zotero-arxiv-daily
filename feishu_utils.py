@@ -2,6 +2,7 @@
 飞书工具模块：发送群聊消息和更新文档
 """
 import os
+import re
 import requests
 import datetime
 from typing import Optional, List
@@ -366,6 +367,28 @@ def build_markdown_for_doc(papers: List[ArxivPaper], date_str: Optional[str] = N
     return ''.join(md_lines)
 
 
+def markdown_to_docx_paragraphs(md: str) -> List[str]:
+    """
+    将用于邮件/本地历史的 Markdown 文本，转换为适合 Docx 文档的纯文本段落列表。
+    - 去掉标题符号(#)
+    - 去掉粗体符号(**)
+    - 将 Markdown 链接 [text](url) 转换为 "text (url)"
+    - 将分隔线 --- 转成一行长横线
+    """
+    # 去掉行首的 # 级标题
+    text = re.sub(r'^[#]{1,6}\s*', '', md, flags=re.MULTILINE)
+    # 去掉粗体标记 **
+    text = text.replace('**', '')
+    # 转换链接 [text](url) -> text (url)
+    text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'\1 (\2)', text)
+    # 将分隔线 --- 转为一行横线
+    text = re.sub(r'^-{3,}\s*$', '--------------------', text, flags=re.MULTILINE)
+
+    # 按空行拆成段落
+    paragraphs = [p.strip() for p in text.split('\n\n') if p.strip()]
+    return paragraphs
+
+
 def update_feishu_document(
     papers: List[ArxivPaper],
     app_id: str,
@@ -388,9 +411,10 @@ def update_feishu_document(
     """
     try:
         date_str = datetime.datetime.now().strftime('%Y年%m月%d日')
-        new_content = build_markdown_for_doc(papers, date_str)
+        md_content = build_markdown_for_doc(papers, date_str)
+        docx_paragraphs = markdown_to_docx_paragraphs(md_content)
         
-        # 1. 更新本地历史文件（如果指定）
+        # 1. 更新本地历史文件（如果指定，保留完整 Markdown）
         if history_file:
             try:
                 if os.path.exists(history_file):
@@ -398,11 +422,11 @@ def update_feishu_document(
                         existing_content = f.read()
                     # 在文件开头插入新内容
                     with open(history_file, 'w', encoding='utf-8') as f:
-                        f.write(new_content + existing_content)
+                        f.write(md_content + existing_content)
                 else:
                     # 首次创建，添加标题
                     with open(history_file, 'w', encoding='utf-8') as f:
-                        f.write(f"# Daily arXiv 推荐历史\n\n{new_content}")
+                        f.write(f"# Daily arXiv 推荐历史\n\n{md_content}")
                 logger.info(f"✅ 本地历史文件已更新: {history_file}")
             except Exception as e:
                 logger.warning(f"更新本地历史文件失败: {e}")
@@ -431,24 +455,27 @@ def update_feishu_document(
                 .log_level(lark.LogLevel.INFO) \
                 .build()
 
-            # 构造块：block_type=2 表示段落块，使用 Text 结构承载文本
-            block = Block.builder() \
-                .block_type(2) \
-                .text(
-                    Text.builder()
-                    .style(TextStyle.builder().build())
-                    .elements([
-                        TextElement.builder()
-                        .text_run(
-                            TextRun.builder()
-                            .content(new_content)
+            # 构造块列表：block_type=2 表示段落块，使用 Text 结构承载文本
+            blocks: List[Block] = []
+            for para in docx_paragraphs:
+                block = Block.builder() \
+                    .block_type(2) \
+                    .text(
+                        Text.builder()
+                        .style(TextStyle.builder().build())
+                        .elements([
+                            TextElement.builder()
+                            .text_run(
+                                TextRun.builder()
+                                .content(para)
+                                .build()
+                            )
                             .build()
-                        )
+                        ])
                         .build()
-                    ])
+                    ) \
                     .build()
-                ) \
-                .build()
+                blocks.append(block)
 
             request = CreateDocumentBlockChildrenRequest.builder() \
                 .document_id(doc_token) \
@@ -456,7 +483,7 @@ def update_feishu_document(
                 .document_revision_id(-1) \
                 .request_body(
                     CreateDocumentBlockChildrenRequestBody.builder()
-                    .children([block])
+                    .children(blocks)
                     .index(0)
                     .build()
                 ) \
