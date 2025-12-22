@@ -643,8 +643,9 @@ def update_feishu_document(
                 .user_access_token(user_access_token) \
                 .build()
             
-            # 分批插入，每次插入到 index=0（文档最前面）
-            for batch_idx in range(total_batches):
+            # 分批插入，倒序插入以确保顺序正确（最后一批先插入，第1批最后插入）
+            # 这样第1批会在最前面，保持正确的顺序
+            for batch_idx in range(total_batches - 1, -1, -1):  # 从最后一批开始倒序
                 start_idx = batch_idx * MAX_BLOCKS_PER_BATCH
                 end_idx = min(start_idx + MAX_BLOCKS_PER_BATCH, len(blocks))
                 batch_blocks = blocks[start_idx:end_idx]
