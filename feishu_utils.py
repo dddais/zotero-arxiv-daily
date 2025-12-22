@@ -412,13 +412,17 @@ def update_feishu_document(
             # 使用应用的 tenant_access_token（无需单独的用户 access token）
             tenant_token = get_tenant_access_token(app_id, app_secret)
 
-            # 将本次 new_content 作为一个段落块追加到文档末尾
-            url = f"https://open.feishu.cn/open-apis/docx/v1/documents/{doc_token}/blocks"
+            # 根据官方 Docx API 文档：
+            # 创建子块接口为：
+            # POST /open-apis/docx/v1/documents/{document_id}/blocks/{block_id}/children
+            # 这里使用 "0" 作为根块 ID，将内容插入到文档开头（index=0）
+            url = f"https://open.feishu.cn/open-apis/docx/v1/documents/{doc_token}/blocks/0/children"
             headers = {
                 "Authorization": f"Bearer {tenant_token}",
                 "Content-Type": "application/json",
             }
             payload = {
+                "index": 0,
                 "children": [
                     {
                         "block_type": "paragraph",
