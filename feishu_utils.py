@@ -599,7 +599,7 @@ def update_feishu_document(
         date_str = datetime.datetime.now().strftime('%Y年%m月%d日')
 
         # 1. 不再维护本地 Markdown 文件，直接构造 Docx Block 结构
-        # 2. 使用 Docx SDK 追加更新飞书 Docx 文档内容（docx/v1），以用户身份调用
+        # 2. 使用 Docx SDK 追加更新飞书 Docx 文档内容（docx/v1），使用应用级别的 tenant_access_token
         try:
             import lark_oapi as lark
             from lark_oapi.api.docx.v1 import (
@@ -613,14 +613,11 @@ def update_feishu_document(
                 TextElementStyle,
             )
 
-            user_access_token = os.getenv("FEISHU_USER_ACCESS_TOKEN")
-            if not user_access_token:
-                logger.warning("⚠️  未配置 FEISHU_USER_ACCESS_TOKEN，无法自动更新 Docx 文档，只更新本地 Markdown。")
-                return True
+            # 使用应用的 tenant_access_token（与发送消息的方式一致）
+            tenant_token = get_tenant_access_token(app_id, app_secret)
 
-            # 使用 SDK client，按官方示例启用 set_token
+            # 使用 SDK client
             client = lark.Client.builder() \
-                .enable_set_token(True) \
                 .log_level(lark.LogLevel.INFO) \
                 .build()
 
@@ -639,8 +636,9 @@ def update_feishu_document(
             total_batches = (len(blocks) + MAX_BLOCKS_PER_BATCH - 1) // MAX_BLOCKS_PER_BATCH
             logger.info(f"📦 将分 {total_batches} 批插入（每批最多 {MAX_BLOCKS_PER_BATCH} 个块）")
             
+            # 使用 tenant_access_token（应用级别 token）
             option = lark.RequestOption.builder() \
-                .user_access_token(user_access_token) \
+                .tenant_access_token(tenant_token) \
                 .build()
             
             # 分批插入，倒序插入以确保顺序正确（最后一批先插入，第1批最后插入）
@@ -686,9 +684,8 @@ def update_feishu_document(
 
         except Exception as e:
             logger.warning(f"⚠️  飞书 Docx 文档自动更新失败: {e}")
-            if history_file:
-                logger.info(f"   内容已保存到本地文件: {history_file}")
-                logger.info("   建议：手动将 Markdown 内容导入到飞书文档（飞书支持 Markdown 导入），或检查 FEISHU_USER_ACCESS_TOKEN 是否有效")
+            import traceback
+            logger.debug(f"详细错误信息: {traceback.format_exc()}")
             return True
         
     except Exception as e:
