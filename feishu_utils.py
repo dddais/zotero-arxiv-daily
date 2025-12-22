@@ -470,8 +470,12 @@ def build_docx_blocks_for_papers(
             .block_type(14)
             .quote(
                 Quote.builder()
-                .elements([author_el])
-                .style(TextStyle.builder().build())
+                .text(
+                    Text.builder()
+                    .elements([author_el])
+                    .style(TextStyle.builder().build())
+                    .build()
+                )
                 .build()
             )
             .build()
@@ -491,8 +495,12 @@ def build_docx_blocks_for_papers(
                 .block_type(14)
                 .quote(
                     Quote.builder()
-                    .elements([affil_el])
-                    .style(TextStyle.builder().build())
+                    .text(
+                        Text.builder()
+                        .elements([affil_el])
+                        .style(TextStyle.builder().build())
+                        .build()
+                    )
                     .build()
                 )
                 .build()
@@ -508,8 +516,12 @@ def build_docx_blocks_for_papers(
             .block_type(14)
             .quote(
                 Quote.builder()
-                .elements([kw_el])
-                .style(TextStyle.builder().build())
+                .text(
+                    Text.builder()
+                    .elements([kw_el])
+                    .style(TextStyle.builder().build())
+                    .build()
+                )
                 .build()
             )
             .build()
