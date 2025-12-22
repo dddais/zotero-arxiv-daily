@@ -17,9 +17,6 @@ jobs:
         with:
           version: '0.5.4'
 
-      - name: Install extra deps (lark-oapi for Feishu)
-        run: uv pip install lark-oapi
-
       - name: Run script
         env:
           ZOTERO_ID: ${{ secrets.ZOTERO_ID }}
