@@ -240,6 +240,12 @@ if __name__ == '__main__':
         import datetime
         
         date_str = datetime.datetime.now().strftime('%Y年%m月%d日')
+
+        # 构造文档 URL，用于卡片按钮（优先使用显式 doc_url）
+        doc_url = args.feishu_doc_url
+        if not doc_url and args.feishu_doc_token:
+            # 你当前使用的飞书文档链接前缀，保持与实际环境一致
+            doc_url = f"https://x2-robot.feishu.cn/wiki/{args.feishu_doc_token}"
         
         # 发送群聊消息
         if args.feishu_chat_id:
@@ -268,10 +274,6 @@ if __name__ == '__main__':
         else:
             logger.warning("FEISHU_DOC_TOKEN not provided, skipping document update.")
 
-        # 构造文档 URL，用于卡片按钮（优先使用显式 doc_url）
-        doc_url = args.feishu_doc_url
-        if not doc_url and args.feishu_doc_token:
-            doc_url = f"https://open.feishu.cn/docx/{args.feishu_doc_token}"
     else:
         logger.info("Feishu credentials not provided, skipping Feishu features.")
 
