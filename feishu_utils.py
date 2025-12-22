@@ -421,14 +421,13 @@ def update_feishu_document(
                 "Authorization": f"Bearer {tenant_token}",
                 "Content-Type": "application/json",
             }
-            # 根据官方文档，block_type 需要使用数字枚举，不是字符串；
-            # 通常 2 表示 paragraph 段落块。
+            # 根据官方示例，使用 block_type=2 且字段为 text 而非 paragraph
             payload = {
                 "index": 0,
                 "children": [
                     {
                         "block_type": 2,
-                        "paragraph": {
+                        "text": {
                             "elements": [
                                 {
                                     "text_run": {
