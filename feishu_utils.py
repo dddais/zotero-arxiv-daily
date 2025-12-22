@@ -345,9 +345,6 @@ def build_docx_blocks_for_papers(
     - 顶部：日期 + 总数
     - 每篇：标题（加粗+星级）/ 作者 / 机构 / 关键词 / TLDR / 链接 + 分隔线
     """
-    HAS_QUOTE = False  # 默认值
-    Quote = None  # 默认值
-    
     try:
         import lark_oapi as lark  # noqa: F401
         from lark_oapi.api.docx.v1 import (
@@ -357,17 +354,7 @@ def build_docx_blocks_for_papers(
             TextRun,
             TextStyle,
             TextElementStyle,
-            Heading1,
-            Heading2,
         )
-        # 尝试导入 Quote，如果不存在则使用 None
-        try:
-            from lark_oapi.api.docx.v1 import Quote as QuoteClass
-            Quote = QuoteClass
-            HAS_QUOTE = True
-        except ImportError:
-            HAS_QUOTE = False
-            logger.warning("⚠️  Quote 类不存在，将使用普通文本块代替引用块")
     except Exception as e:
         # 理论上不会走到这里，因为上层已导入；保险兜底
         logger.error(f"❌ 导入 lark_oapi SDK 失败: {e}")
@@ -378,35 +365,6 @@ def build_docx_blocks_for_papers(
     blocks: List[Block] = []
     
     logger.debug(f"开始构造 Docx 块，papers 数量: {len(papers)}")
-    
-    # 辅助函数：创建引用块或普通文本块
-    def _create_quote_or_text_block(text_element: TextElement) -> Block:
-        """根据 HAS_QUOTE 创建引用块或普通文本块"""
-        if HAS_QUOTE and Quote is not None:
-            return Block.builder() \
-                .block_type(14) \
-                .quote(
-                    Quote.builder()
-                    .text(
-                        Text.builder()
-                        .elements([text_element])
-                        .style(TextStyle.builder().build())
-                        .build()
-                    )
-                    .build()
-                ) \
-                .build()
-        else:
-            # 回退到普通文本块
-            return Block.builder() \
-                .block_type(2) \
-                .text(
-                    Text.builder()
-                    .elements([text_element])
-                    .style(TextStyle.builder().build())
-                    .build()
-                ) \
-                .build()
 
     # 顶部标题：日期（一级标题）
     title_elements = [
@@ -426,8 +384,8 @@ def build_docx_blocks_for_papers(
     blocks.append(
         Block.builder()
         .block_type(3)
-        .heading1(
-            Heading1.builder()
+        .text(
+            Text.builder()
             .elements(title_elements)
             .style(TextStyle.builder().build())
             .build()
@@ -495,8 +453,8 @@ def build_docx_blocks_for_papers(
         blocks.append(
             Block.builder()
             .block_type(4)
-            .heading2(
-                Heading2.builder()
+            .text(
+                Text.builder()
                 .elements([title_el])
                 .style(TextStyle.builder().build())
                 .build()
@@ -509,7 +467,17 @@ def build_docx_blocks_for_papers(
         author_el = TextElement.builder().text_run(
             TextRun.builder().content(author_line).build()
         ).build()
-        blocks.append(_create_quote_or_text_block(author_el))
+        blocks.append(
+            Block.builder()
+            .block_type(14)
+            .text(
+                Text.builder()
+                .elements([author_el])
+                .style(TextStyle.builder().build())
+                .build()
+            )
+            .build()
+        )
 
         # 机构（最多 3 个，引用块）
         if info["affiliations"]:
@@ -520,14 +488,34 @@ def build_docx_blocks_for_papers(
             affil_el = TextElement.builder().text_run(
                 TextRun.builder().content(affil_line).build()
             ).build()
-            blocks.append(_create_quote_or_text_block(affil_el))
+            blocks.append(
+                Block.builder()
+                .block_type(14)
+                .text(
+                    Text.builder()
+                    .elements([affil_el])
+                    .style(TextStyle.builder().build())
+                    .build()
+                )
+                .build()
+            )
 
         # 关键词（引用块）
         kw_line = f"关键词: {info['keywords']}"
         kw_el = TextElement.builder().text_run(
             TextRun.builder().content(kw_line).build()
         ).build()
-        blocks.append(_create_quote_or_text_block(kw_el))
+        blocks.append(
+            Block.builder()
+            .block_type(14)
+            .text(
+                Text.builder()
+                .elements([kw_el])
+                .style(TextStyle.builder().build())
+                .build()
+            )
+            .build()
+        )
 
         # TLDR
         tldr_line = f"TLDR: {info['tldr']}"
