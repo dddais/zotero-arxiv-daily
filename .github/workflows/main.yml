@@ -24,23 +24,30 @@ jobs:
           ZOTERO_ID: ${{ secrets.ZOTERO_ID }}
           ZOTERO_KEY: ${{ secrets.ZOTERO_KEY }}
           ZOTERO_IGNORE: ${{ vars.ZOTERO_IGNORE }}
-          SEND_EMPTY: ${{ vars.SEND_EMPTY }}
           ARXIV_QUERY: ${{ secrets.ARXIV_QUERY }}
+          SEND_EMPTY: ${{ vars.SEND_EMPTY }}
           SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
           SENDER: ${{ secrets.SENDER }}
           RECEIVER: ${{ secrets.RECEIVER }}
           SENDER_PASSWORD: ${{ secrets.SENDER_PASSWORD }}
-          MAX_PAPER_NUM: ${{ secrets.MAX_PAPER_NUM }}
+          MAX_PAPER_NUM: 10
+          # MAX_PAPER_NUM: ${{ secrets.MAX_PAPER_NUM }}
           USE_LLM_API: ${{ secrets.USE_LLM_API }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_API_BASE: ${{ secrets.OPENAI_API_BASE }}
-          MODEL_NAME: ${{ secrets.MODEL_NAME }}
+          OPENAI_API_KEY: sk-d68540cdfdd74c45a204d4ad1ed5a104
+          OPENAI_API_BASE: https://dashscope.aliyuncs.com/compatible-mode/v1
+          MODEL_NAME: qwen-flash
+          # OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # OPENAI_API_BASE: ${{ secrets.OPENAI_API_BASE }}
+          # MODEL_NAME: ${{ secrets.MODEL_NAME }}
           LANGUAGE: ${{ vars.LANGUAGE }}
-          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
-          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+          FEISHU_APP_ID: cli_a9c27578bfb8dcd5
+          FEISHU_APP_SECRET: zWePqI6WS7JX1vmjmazs1EgR1ekXNRL7
+          FEISHU_DOC_TOKEN: KkScdwaRno1ATzxeYOfc1Sjmncf
+          # FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+          # FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
           FEISHU_CHAT_ID: ${{ secrets.FEISHU_CHAT_ID }}
-          FEISHU_DOC_TOKEN: ${{ secrets.FEISHU_DOC_TOKEN }}
-          FEISHU_HISTORY_FILE: history.md 
+          # FEISHU_DOC_TOKEN: ${{ secrets.FEISHU_DOC_TOKEN }}
+          FEISHU_USER_ACCESS_TOKEN: u-faoBDa4LN4wrySzIQMXY8ukk6H5444OPNyEaIAo00JOT
         run: |
           uv run main.py

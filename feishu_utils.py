@@ -556,7 +556,7 @@ def build_docx_blocks_for_papers(
 
         # 分隔线 + 空行
         sep_el = TextElement.builder().text_run(
-            TextRun.builder().content("────────────────────").build()
+            TextRun.builder().content("────────────────────────────────").build()
         ).build()
         blocks.append(
             Block.builder()
