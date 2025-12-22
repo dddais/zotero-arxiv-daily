@@ -497,12 +497,11 @@ def update_feishu_document(
                         "text": {"elements": text_runs}
                     })
             
-            # 在文档开头插入新内容
+            # 在文档中插入新内容（追加到第一个 block 之前/之后，取决于 API 默认行为）
             if first_block_id and blocks_to_insert:
                 insert_request = CreateDocumentBlockChildrenRequest.builder() \
                     .document_id(doc_token) \
                     .block_id(first_block_id) \
-                    .index(0) \
                     .children(blocks_to_insert) \
                     .build()
                 
