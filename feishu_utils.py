@@ -389,7 +389,7 @@ def build_docx_blocks_for_papers(
         .heading1(
             Text.builder()
             .elements(title_elements)
-            .style(TextStyle.builder().align(2).build())  # align=2 表示居中
+            .style(TextStyle.builder().align(1).build())  # align=1 表示左对齐
             .build()
         )
         .build()
