@@ -379,10 +379,9 @@ def build_docx_blocks_for_papers(
     blocks.append(
         Block.builder()
         .block_type(2)
-        .text(
+        .heading1(
             Text.builder()
-            # 使用 heading_level=1 模拟一级标题样式
-            .style(TextStyle.builder().heading_level(1).build())
+            .style(TextStyle.builder().build())
             .elements(title_elements)
             .build()
         )
@@ -449,10 +448,9 @@ def build_docx_blocks_for_papers(
         blocks.append(
             Block.builder()
             .block_type(2)
-            .text(
+            .heading2(
                 Text.builder()
-                # heading_level=2 模拟二级标题样式
-                .style(TextStyle.builder().heading_level(2).build())
+                .style(TextStyle.builder().build())
                 .elements([title_el])
                 .build()
             )
