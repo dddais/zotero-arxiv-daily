@@ -638,7 +638,9 @@ def update_feishu_document(
             
             # 分批插入，倒序插入以确保顺序正确（最后一批先插入，第1批最后插入）
             # 这样第1批会在最前面，保持正确的顺序
-            url = f"https://open.feishu.cn/open-apis/docx/v1/documents/{doc_token}/blocks"
+            # 使用正确的 URL 格式：/documents/{document_id}/blocks/{block_id}/children
+            # block_id 使用文档 ID 本身（根块）
+            url = f"https://open.feishu.cn/open-apis/docx/v1/documents/{doc_token}/blocks/{doc_token}/children"
             headers = {
                 "Authorization": f"Bearer {tenant_token}",
                 "Content-Type": "application/json"
@@ -652,11 +654,11 @@ def update_feishu_document(
                 logger.debug(f"📤 插入第 {batch_idx + 1}/{total_batches} 批（块 {start_idx + 1}-{end_idx}，共 {len(batch_blocks)} 个）")
                 
                 # 将 Block 对象转换为字典
-                blocks_dict = [block_to_dict(block) for block in batch_blocks]
+                children_dict = [block_to_dict(block) for block in batch_blocks]
                 
                 payload = {
                     "index": 0,  # 插入到文档最前面
-                    "blocks": blocks_dict
+                    "children": children_dict  # 使用 children 字段
                 }
                 
                 resp = requests.post(url, json=payload, headers=headers, timeout=30)
