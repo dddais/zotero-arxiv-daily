@@ -383,7 +383,7 @@ def build_docx_blocks_for_papers(
     ]
     blocks.append(
         Block.builder()
-        .block_type(3)
+        .block_type(2)
         .text(
             Text.builder()
             .elements(title_elements)
@@ -452,7 +452,7 @@ def build_docx_blocks_for_papers(
         ).build()
         blocks.append(
             Block.builder()
-            .block_type(4)
+            .block_type(2)
             .text(
                 Text.builder()
                 .elements([title_el])
