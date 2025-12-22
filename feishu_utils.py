@@ -356,6 +356,7 @@ def build_docx_blocks_for_papers(
             TextElementStyle,
             Heading1,
             Heading2,
+            Quote,
         )
     except Exception:
         # 理论上不会走到这里，因为上层已导入；保险兜底
@@ -459,24 +460,24 @@ def build_docx_blocks_for_papers(
             .build()
         )
 
-        # 作者
+        # 作者（引用块）
         author_line = f"作者: {info['authors']}"
         author_el = TextElement.builder().text_run(
             TextRun.builder().content(author_line).build()
         ).build()
         blocks.append(
             Block.builder()
-            .block_type(2)
-            .text(
-                Text.builder()
-                .style(TextStyle.builder().build())
+            .block_type(14)
+            .quote(
+                Quote.builder()
                 .elements([author_el])
+                .style(TextStyle.builder().build())
                 .build()
             )
             .build()
         )
 
-        # 机构（最多 3 个）
+        # 机构（最多 3 个，引用块）
         if info["affiliations"]:
             affil_list = info["affiliations"][:3]
             if len(info["affiliations"]) > 3:
@@ -487,28 +488,28 @@ def build_docx_blocks_for_papers(
             ).build()
             blocks.append(
                 Block.builder()
-                .block_type(2)
-                .text(
-                    Text.builder()
-                    .style(TextStyle.builder().build())
+                .block_type(14)
+                .quote(
+                    Quote.builder()
                     .elements([affil_el])
+                    .style(TextStyle.builder().build())
                     .build()
                 )
                 .build()
             )
 
-        # 关键词
+        # 关键词（引用块）
         kw_line = f"关键词: {info['keywords']}"
         kw_el = TextElement.builder().text_run(
             TextRun.builder().content(kw_line).build()
         ).build()
         blocks.append(
             Block.builder()
-            .block_type(2)
-            .text(
-                Text.builder()
-                .style(TextStyle.builder().build())
+            .block_type(14)
+            .quote(
+                Quote.builder()
                 .elements([kw_el])
+                .style(TextStyle.builder().build())
                 .build()
             )
             .build()
