@@ -444,7 +444,11 @@ def update_feishu_document(
         # 如果 SDK 不可用，会回退到仅维护本地文件
         try:
             import lark_oapi as lark
-            from lark_oapi.api.docx.v1 import *
+            # 只导入需要的类，避免函数作用域内使用 import *
+            from lark_oapi.api.docx.v1 import (
+                ListDocumentBlockRequest,
+                CreateDocumentBlockChildrenRequest,
+            )
             
             client = lark.Client.builder() \
                 .app_id(app_id) \
