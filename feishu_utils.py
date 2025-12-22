@@ -95,12 +95,13 @@ def build_feishu_interactive_message(
             tldr_short = info["tldr"].replace("\n", " ")
             if len(tldr_short) > 120:
                 tldr_short = tldr_short[:117] + "..."
+            # 每篇只保留一个链接（arXiv），避免信息过载
             one = [
                 f"{idx}. **{info['title']}** {info['stars']}",
                 f"   作者: {info['authors']}",
                 f"   关键词: {info['keywords']}",
                 f"   TLDR: {tldr_short}",
-                f"   [arXiv](https://arxiv.org/abs/{info['arxiv_id']}) | [PDF]({info['pdf_url']})",
+                f"   [arXiv](https://arxiv.org/abs/{info['arxiv_id']})",
                 "",
             ]
             lines.extend(one)
@@ -360,7 +361,7 @@ def build_docx_blocks_for_papers(
 
     blocks: List[Block] = []
 
-    # 顶部标题：日期
+    # 顶部标题：日期（一级标题）
     title_elements = [
         TextElement.builder()
         .text_run(
@@ -380,7 +381,8 @@ def build_docx_blocks_for_papers(
         .block_type(2)
         .text(
             Text.builder()
-            .style(TextStyle.builder().build())
+            # 使用 heading_level=1 模拟一级标题样式
+            .style(TextStyle.builder().heading_level(1).build())
             .elements(title_elements)
             .build()
         )
@@ -432,7 +434,7 @@ def build_docx_blocks_for_papers(
     for idx, p in enumerate(papers, 1):
         info = build_paper_summary(p)
 
-        # 标题行：序号 + 标题 + 星级（加粗）
+        # 标题行：序号 + 标题 + 星级（二级标题，加粗）
         title_line = f"{idx}. {info['title']} {info['stars']}"
         title_el = TextElement.builder().text_run(
             TextRun.builder()
@@ -449,7 +451,8 @@ def build_docx_blocks_for_papers(
             .block_type(2)
             .text(
                 Text.builder()
-                .style(TextStyle.builder().build())
+                # heading_level=2 模拟二级标题样式
+                .style(TextStyle.builder().heading_level(2).build())
                 .elements([title_el])
                 .build()
             )
@@ -528,8 +531,8 @@ def build_docx_blocks_for_papers(
             .build()
         )
 
-        # 链接行
-        link_line = f"链接: https://arxiv.org/abs/{info['arxiv_id']} | PDF: {info['pdf_url']}"
+        # 链接行：只保留一个链接（arXiv 页面）
+        link_line = f"链接: https://arxiv.org/abs/{info['arxiv_id']}"
         link_el = TextElement.builder().text_run(
             TextRun.builder().content(link_line).build()
         ).build()
