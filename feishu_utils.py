@@ -378,8 +378,8 @@ def build_docx_blocks_for_papers(
     ]
     blocks.append(
         Block.builder()
-        .block_type(2)
-        .heading1(
+        .block_type(3)
+        .text(
             Text.builder()
             .style(TextStyle.builder().build())
             .elements(title_elements)
@@ -447,8 +447,8 @@ def build_docx_blocks_for_papers(
         ).build()
         blocks.append(
             Block.builder()
-            .block_type(2)
-            .heading2(
+            .block_type(4)
+            .text(
                 Text.builder()
                 .style(TextStyle.builder().build())
                 .elements([title_el])
@@ -464,7 +464,7 @@ def build_docx_blocks_for_papers(
         ).build()
         blocks.append(
             Block.builder()
-            .block_type(2)
+            .block_type(15)
             .text(
                 Text.builder()
                 .style(TextStyle.builder().build())
@@ -485,7 +485,7 @@ def build_docx_blocks_for_papers(
             ).build()
             blocks.append(
                 Block.builder()
-                .block_type(2)
+                .block_type(15)
                 .text(
                     Text.builder()
                     .style(TextStyle.builder().build())
@@ -502,7 +502,7 @@ def build_docx_blocks_for_papers(
         ).build()
         blocks.append(
             Block.builder()
-            .block_type(2)
+            .block_type(15)
             .text(
                 Text.builder()
                 .style(TextStyle.builder().build())
