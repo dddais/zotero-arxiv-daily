@@ -112,16 +112,21 @@ def build_feishu_interactive_message(
         }
     ]
 
+    # /im/v1/messages 对 interactive 的要求是：
+    # msg_type="interactive"，content 为 JSON 字符串形式的 card 对象
+    import json
+    card_obj = {
+        "config": {"wide_screen_mode": True},
+        "header": {
+            "title": {"tag": "plain_text", "content": title},
+            "template": "blue",
+        },
+        "elements": elements,
+    }
+
     return {
         "msg_type": "interactive",
-        "card": {
-            "config": {"wide_screen_mode": True},
-            "header": {
-                "title": {"tag": "plain_text", "content": title},
-                "template": "blue",
-            },
-            "elements": elements,
-        },
+        "content": json.dumps(card_obj, ensure_ascii=False),
     }
 
 
