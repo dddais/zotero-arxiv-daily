@@ -11,14 +11,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          repository: ${{ vars.REPOSITORY }}
-          ref: ${{ vars.REF }}
+          # repository: ${{ vars.REPOSITORY }}
+          repository: dddais/zotero-arxiv-daily
+          # ref: ${{ vars.REF }}
+          ref: feishu
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v3
         with:
           version: '0.5.4'
-          
+
       - name: Sync deps
         run: uv sync
 
@@ -53,6 +55,6 @@ jobs:
           # FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
           FEISHU_CHAT_ID: ${{ secrets.FEISHU_CHAT_ID }}
           # FEISHU_DOC_TOKEN: ${{ secrets.FEISHU_DOC_TOKEN }}
-          FEISHU_USER_ACCESS_TOKEN: u-faoBDa4LN4wrySzIQMXY8ukk6H5444OPNyEaIAo00JOT
+          # FEISHU_USER_ACCESS_TOKEN: u-faoBDa4LN4wrySzIQMXY8ukk6H5444OPNyEaIAo00JOT
         run: |
           uv run main.py
