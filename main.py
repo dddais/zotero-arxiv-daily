@@ -67,7 +67,25 @@ def get_arxiv_paper(query:str, debug:bool=False) -> list[ArxivPaper]:
         raise Exception(f"Invalid ARXIV_QUERY: {query}.")
     if not debug:
         papers = []
-        all_paper_ids = [i.id.removeprefix("oai:arXiv.org:") for i in feed.entries if i.arxiv_announce_type == 'new']
+        # 添加调试信息：统计 RSS feed 返回的论文类型
+        total_entries = len(feed.entries)
+        new_papers = [i for i in feed.entries if getattr(i, 'arxiv_announce_type', None) == 'new']
+        replacement_papers = [i for i in feed.entries if getattr(i, 'arxiv_announce_type', None) == 'replacement']
+        crosslist_papers = [i for i in feed.entries if getattr(i, 'arxiv_announce_type', None) == 'cross-list']
+        other_papers = [i for i in feed.entries if getattr(i, 'arxiv_announce_type', None) not in ['new', 'replacement', 'cross-list']]
+        
+        logger.info(f"📊 RSS feed 统计信息:")
+        logger.info(f"   - 总条目数: {total_entries}")
+        logger.info(f"   - 新发布论文 (new): {len(new_papers)}")
+        logger.info(f"   - 更新版本 (replacement): {len(replacement_papers)}")
+        logger.info(f"   - 跨分类 (cross-list): {len(crosslist_papers)}")
+        logger.info(f"   - 其他类型: {len(other_papers)}")
+        
+        if total_entries > 0 and len(new_papers) == 0:
+            logger.warning(f"⚠️  RSS feed 返回了 {total_entries} 条论文，但都是更新版本或跨分类，没有新发布的论文。")
+            logger.warning(f"   这可能是因为：1) 最近几天确实没有新论文；2) 都是对已有论文的更新版本")
+        
+        all_paper_ids = [i.id.removeprefix("oai:arXiv.org:") for i in feed.entries if getattr(i, 'arxiv_announce_type', None) == 'new']
         bar = tqdm(total=len(all_paper_ids),desc="Retrieving Arxiv papers")
         for i in range(0,len(all_paper_ids),20):
             search = arxiv.Search(id_list=all_paper_ids[i:i+20])
